@@ -7,7 +7,7 @@ import (
 	// "time"
 
 	// "github.com/leoxiang66/go-patterns/container/list"
-	"github.com/leoxiang66/go-patterns/parallel/rwlock"
+	"github.com/leoheung/go-patterns/parallel/rwlock"
 )
 
 // import "github.com/leoxiang66/go-patterns/parallel/semaphore"

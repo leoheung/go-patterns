@@ -45,7 +45,7 @@ func FanIn[X any](q <-chan struct{}, inputs ...<-chan X) chan X {
 }
 
 
-// FanOut 数据分发：将单一输入通道的数据复制到多个输出通道
+// FanOut 数据分发：将单一输入通道的数据均匀分配到多个输出通道
 // 参数：
 //   q: 终止信号通道（关闭时组件退出）
 //   in: 输入通道（单一数据源）
@@ -66,7 +66,7 @@ func FanOut[X any](q <-chan struct{}, in <-chan X, num int) []chan X {
     var wg sync.WaitGroup
     wg.Add(num) // 每个输出通道对应一个goroutine
 
-    // 为每个输出通道启动goroutine，负责复制数据
+    // 为每个输出通道启动goroutine，负责抢读数据
     for i := 0; i < num; i++ {
         go func(outChan chan<- X) {
             defer func() {
