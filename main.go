@@ -25,13 +25,12 @@ func main()  {
 	ptm.PendNewTask(&Task{
 		st: time.Now().Add(5*time.Second),
 	})
-	
+
 
 	ptm.PendNewTask(&Task{
 		st: time.Now().Add(time.Second),
 	})
 
-	
+	ptm.FinishAndQuit()
 
-	select{}
 }
