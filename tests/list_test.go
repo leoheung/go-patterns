@@ -1,11 +1,12 @@
-package list
+package tests
 
 import (
-    "testing"
+	"github.com/leoheung/go-patterns/container/list"
+	"testing"
 )
 
 func TestListBasic(t *testing.T) {
-    l := New[int]()
+    l := list.New[int]()
     l.Append(1, 2, 3)
     if l.Len() != 3 {
         t.Errorf("Len = %d, want 3", l.Len())

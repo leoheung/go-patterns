@@ -1,12 +1,13 @@
-package barrier
+package tests
 
 import (
 	"testing"
 	"time"
+	"github.com/leoheung/go-patterns/parallel/barrier"
 )
 
 func TestEasyBarrier(t *testing.T) {
-	barrier := NewEasyBarrier(2)
+	barrier :=barrier.NewEasyBarrier(2)
 	done := make(chan struct{})
 	go func() {
 		barrier.Done()
@@ -22,7 +23,7 @@ func TestEasyBarrier(t *testing.T) {
 }
 
 func TestLightBarrier(t *testing.T) {
-	b := NewLightBarrier()
+	b := barrier.NewLightBarrier()
 	b.Add()
 	b.Add()
 	done := make(chan struct{})

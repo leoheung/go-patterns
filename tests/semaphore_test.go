@@ -1,12 +1,13 @@
-package semaphore
+package tests
 
 import (
 	"testing"
 	"time"
+	"github.com/leoheung/go-patterns/parallel/semaphore"
 )
 
 func TestSemaphore(t *testing.T) {
-	sem := NewSemaphore(2)
+	sem := semaphore.NewSemaphore(2)
 	sem.Acquire()
 	sem.Acquire()
 	done := make(chan struct{})
@@ -22,7 +23,7 @@ func TestSemaphore(t *testing.T) {
 	}
 }
 func TestSemaphoreByCond(t *testing.T) {
-	sem := NewSemaphoreByCond(2)
+	sem := semaphore.NewSemaphoreByCond(2)
 	sem.Acquire()
 	sem.Acquire()
 	done := make(chan struct{})

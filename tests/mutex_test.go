@@ -1,13 +1,14 @@
-package mutex
+package tests
 
 import (
 	"sync"
 	"testing"
 	"time"
+	"github.com/leoheung/go-patterns/parallel/mutex"
 )
 
 func TestMutex_Race(t *testing.T) {
-	m := NewMutex()
+	m := mutex.NewMutex()
 	var counter int
 	const goroutines = 50
 	const increments = 100
@@ -35,7 +36,7 @@ func TestMutex_Race(t *testing.T) {
 }
 
 func TestMutex_Parallel(t *testing.T) {
-	m := NewMutex()
+	m := mutex.NewMutex()
 	var maxConcurrent int
 	var current int
 	const goroutines = 20

@@ -1,4 +1,4 @@
-package rwlock
+package tests
 
 import (
 	"fmt"
@@ -6,12 +6,13 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"github.com/leoheung/go-patterns/parallel/rwlock"
 )
 
 // 并发读写测试：并发多个 reader 和 writer。
 // 用 go test -race 可以检测到 RWLock 内部的 data race（如果实现有问题的话）。
 func TestRWLock_ConcurrentReadersWriters(t *testing.T) {
-	lock := NewRWLock()
+	lock := rwlock.NewRWLock()
 	var wg sync.WaitGroup
 
 	// 共享数据，只有写者会修改
@@ -65,7 +66,7 @@ func TestRWLock_ConcurrentReadersWriters(t *testing.T) {
 // 调试用并发测试：进度打印 + 超时 watchdog。
 // 先用较小规模跑，确认没有死锁，然后再放大规模并加 -race。
 func TestRWLock_Debug(t *testing.T) {
-	lock := NewRWLock()
+	lock := rwlock.NewRWLock()
 	var wg sync.WaitGroup
 
 	var data int64

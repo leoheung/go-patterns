@@ -1,20 +1,37 @@
 package main
 
 import (
-	// "github.com/leoxiang66/go-patterns/parallel/barrier"
-	// "context"
-	// "fmt"
-	// "time"
+	"time"
 
-	// "github.com/leoxiang66/go-patterns/container/list"
-	// "github.com/leoheung/go-patterns/parallel/rwlock"
+	"github.com/leoheung/go-patterns/container/pq"
 	"github.com/leoheung/go-patterns/utils"
 )
 
-// import "github.com/leoxiang66/go-patterns/parallel/semaphore"
-// import "github.com/leoxiang66/go-patterns/parallel/mutex"
-// import "github.com/leoxiang66/go-patterns/parallel/rwlock"
+type Task struct{
+	st time.Time
+}
 
-func main() {
-	utils.PrintlnColor(utils.BrightBlue, "hi")
+func (t *Task) ScheduledTime() time.Time {
+	return  t.st
+}
+
+func (t *Task) DoTask()  {
+	utils.PrintlnColor(utils.BrightBlue, time.Now().String())
+}
+
+func main()  {
+	ptm,_ := pq.NewPriorityScheduledTaskManager[*Task]()
+
+	ptm.PendNewTask(&Task{
+		st: time.Now().Add(5*time.Second),
+	})
+	
+
+	ptm.PendNewTask(&Task{
+		st: time.Now().Add(time.Second),
+	})
+
+	
+
+	select{}
 }
