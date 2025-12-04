@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/leoheung/go-patterns/utils"
 )
 
 type UniversalResponse struct {
@@ -51,15 +50,6 @@ func ReturnErrorResponse(w http.ResponseWriter, code int, errorMsg string) {
 	if err := json.NewEncoder(w).Encode(buildUniversalResponse(nil, errorMsg, false)); err != nil {
 		http.Error(w, "Failed to encode JSON response", http.StatusInternalServerError)
 	}
-}
-
-func IsDigits(s string) bool {
-	for _, ch := range s {
-		if ch < '0' || ch > '9' {
-			return false
-		}
-	}
-	return true
 }
 
 func PreprocessInput(input string) string {
@@ -125,46 +115,3 @@ func PtrTime(t time.Time) *time.Time  { return &t }
 func PtrUUID(id uuid.UUID) *uuid.UUID { return &id }
 
 func PtrBytes(b []byte) *[]byte { return &b }
-
-func DelayDo(d time.Duration, fn func()) {
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-	<-timer.C
-	fn()
-}
-
-// RetryWork 执行工作函数，捕获panic或error并最多重试retryTimes次
-// work: 需要执行的工作函数
-// retryTimes: 最大重试次数（不包括首次执行）
-func RetryWork(work func() error, retryTimes int) {
-	totalAttempts := retryTimes + 1
-	for attempt := 0; attempt < totalAttempts; attempt++ {
-		var err error
-		func(attempt int) {
-			defer func() {
-				if r := recover(); r != nil {
-					// 捕获panic，转换为错误
-					err = fmt.Errorf("panic: %v", r)
-				}
-			}()
-			// 执行工作函数并获取返回的错误
-			err = work()
-		}(attempt)
-
-		// 判断是否需要重试
-		if err == nil {
-			utils.LogMessage(fmt.Sprintf("尝试 %d 成功", attempt+1))
-			return // 成功，退出重试
-		}
-
-		utils.LogMessage(fmt.Sprintf("业务逻辑出现error/panic: %s", err.Error()))
-
-		// 失败处理
-		if attempt < totalAttempts-1 {
-			utils.LogMessage(fmt.Sprintf("尝试 %d 失败: %v，将重试...", attempt+1, err))
-			time.Sleep(500 * time.Millisecond)
-		} else {
-			utils.LogMessage(fmt.Sprintf("最后一次尝试 %d 失败: %v，已耗尽重试次数", attempt+1, err))
-		}
-	}
-}

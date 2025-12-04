@@ -1,6 +1,9 @@
 package utils
 
-import "reflect"
+import (
+	"reflect"
+	"time"
+)
 
 // IsNil returns true if v is a nil value for nilable kinds or an untyped nil interface.
 func IsNil[T any](v T) bool {
@@ -14,4 +17,20 @@ func IsNil[T any](v T) bool {
 	default:
 		return false
 	}
+}
+
+func IsDigits(s string) bool {
+	for _, ch := range s {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func DelayDo(d time.Duration, fn func()) {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	<-timer.C
+	fn()
 }
