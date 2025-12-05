@@ -25,15 +25,7 @@ func buildUniversalResponse(data interface{}, err string, isSuccess bool) *Unive
 	}
 }
 
-// PPrint 格式化打印任意对象
-func PPrint(obj interface{}) {
-	b, err := json.MarshalIndent(obj, "", "  ")
-	if err != nil {
-		fmt.Println("PPrint error:", err)
-		return
-	}
-	fmt.Println(string(b))
-}
+
 
 // ReturnJsonResponse is a helper function to send JSON responses
 func ReturnJsonResponse(w http.ResponseWriter, code int, payload interface{}) {
