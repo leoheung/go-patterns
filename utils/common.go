@@ -46,3 +46,8 @@ func PPrint(obj interface{}) {
 	}
 	fmt.Println(string(b))
 }
+
+func Hold() {
+	ch := make(chan struct{})
+	ch <- struct{}{}
+}
