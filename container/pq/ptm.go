@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/leoheung/go-patterns/utils"
 )
 
 // 内部使用的包装结构体，不再暴露给外部
