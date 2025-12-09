@@ -1,7 +1,5 @@
 package pq
 
-// priorited task manager
-
 import (
 	"fmt"
 	"sync"
@@ -10,13 +8,15 @@ import (
 	"github.com/leoheung/go-patterns/utils"
 )
 
-type ScheduledTaskInterface interface {
-	DoTask()
-	ScheduledTime() time.Time
+// 内部使用的包装结构体，不再暴露给外部
+type scheduledTask struct {
+	action func()
+	runAt  time.Time
 }
 
-type PriorityScheduledTaskManager[T ScheduledTaskInterface] struct {
-	pq       *PriorityQueue[T]
+// 移除泛型 [T]
+type PriorityScheduledTaskManager struct {
+	pq       *PriorityQueue[*scheduledTask] // 内部存储具体的包装类型
 	mu       sync.Mutex
 	cond     *sync.Cond
 	canceled chan struct{}
@@ -24,15 +24,17 @@ type PriorityScheduledTaskManager[T ScheduledTaskInterface] struct {
 	stopOnce sync.Once
 }
 
-func NewPriorityScheduledTaskManager[T ScheduledTaskInterface]() (*PriorityScheduledTaskManager[T], error) {
-	pq, err := NewPriorityQueue(0, func(a, b T) bool {
-		return a.ScheduledTime().Before(b.ScheduledTime())
+// 构造函数不再需要类型参数
+func NewPriorityScheduledTaskManager() (*PriorityScheduledTaskManager, error) {
+	// 比较逻辑改为比较内部结构体的 runAt
+	pq, err := NewPriorityQueue(0, func(a, b *scheduledTask) bool {
+		return a.runAt.Before(b.runAt)
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	ret := PriorityScheduledTaskManager[T]{
+	ret := PriorityScheduledTaskManager{
 		pq:       pq,
 		mu:       sync.Mutex{},
 		canceled: make(chan struct{}, 1),
@@ -44,11 +46,10 @@ func NewPriorityScheduledTaskManager[T ScheduledTaskInterface]() (*PrioritySched
 	return &ret, nil
 }
 
-func (ptm *PriorityScheduledTaskManager[T]) watch() {
+func (ptm *PriorityScheduledTaskManager) watch() {
 	for !ptm.isStopped() {
 		ptm.mu.Lock()
 		for ptm.pq.Len() == 0 {
-			// 如果被 FinishAndQuit 唤醒，且队列为空，检查是否停止
 			if ptm.isStopped() {
 				ptm.mu.Unlock()
 				return
@@ -57,12 +58,13 @@ func (ptm *PriorityScheduledTaskManager[T]) watch() {
 		}
 
 		t, err := ptm.pq.Peek()
-		if err != nil || utils.IsNil(t) {
+		if err != nil || t == nil { // t 是 *scheduledTask，直接判空即可
 			ptm.mu.Unlock()
 			continue
 		}
 
-		toSleep := t.ScheduledTime().UTC().Sub(time.Now().UTC())
+		// 使用 t.runAt
+		toSleep := t.runAt.UTC().Sub(time.Now().UTC())
 		if toSleep > 0 {
 			ptm.mu.Unlock()
 			timer := time.NewTimer(toSleep)
@@ -70,19 +72,18 @@ func (ptm *PriorityScheduledTaskManager[T]) watch() {
 			case <-timer.C:
 				ptm.mu.Lock()
 				t, err := ptm.pq.Dequeue()
-				if err != nil || utils.IsNil(t) {
+				if err != nil || t == nil {
 					ptm.mu.Unlock()
 					continue
 				}
-				t.DoTask()
+				// 执行闭包
+				t.action()
 				if ptm.pq.Len() == 0 {
 					ptm.cond.Broadcast()
 				}
 				ptm.mu.Unlock()
 			case <-ptm.canceled:
-				// 有新的更早任务来到, 中断timer
 				if !timer.Stop() {
-					// 非阻塞地吸干，避免阻塞
 					select {
 					case <-timer.C:
 					default:
@@ -91,30 +92,29 @@ func (ptm *PriorityScheduledTaskManager[T]) watch() {
 			}
 			continue
 		} else {
-			// 补做遗留的任务
 			t, err := ptm.pq.Dequeue()
-			if err != nil || utils.IsNil(t) {
+			if err != nil || t == nil {
 				ptm.mu.Unlock()
 				continue
 			}
-			t.DoTask()
+			// 执行闭包
+			t.action()
 			if ptm.pq.Len() == 0 {
 				ptm.cond.Broadcast()
 			}
 			ptm.mu.Unlock()
 		}
-
 	}
 }
 
 /* exposed public functions */
 
-func (ptm *PriorityScheduledTaskManager[T]) PendNewTask(t T) error {
-	if utils.IsNil(t) {
-		return fmt.Errorf("t is nil")
+// API 变更：直接传入函数和时间
+func (ptm *PriorityScheduledTaskManager) PendNewTask(action func(), runAt time.Time) error {
+	if action == nil {
+		return fmt.Errorf("action is nil")
 	}
 
-	// 第一次检查（快速失败，避免不必要的锁竞争）
 	if ptm.isStopped() {
 		return fmt.Errorf("PTM is already stopped")
 	}
@@ -122,20 +122,23 @@ func (ptm *PriorityScheduledTaskManager[T]) PendNewTask(t T) error {
 	ptm.mu.Lock()
 	defer ptm.mu.Unlock()
 
-	// 【新增】第二次检查（关键！防止在获取锁的间隙 stopped 被关闭）
 	if ptm.isStopped() {
 		return fmt.Errorf("PTM is already stopped")
 	}
 
-	// 记录入队前长度，判断是否为第一次入队
+	// 内部包装
+	task := &scheduledTask{
+		action: action,
+		runAt:  runAt,
+	}
+
 	lenBefore := ptm.pq.Len()
-	if err := ptm.pq.Enqueue(t); err == nil {
-		// 唤醒正在等待的 watch
+	if err := ptm.pq.Enqueue(task); err == nil {
 		ptm.cond.Broadcast()
 
-		// 只有当队列原本非空且新元素成为队首时，才发 canceled 中断正在等待的 timer
 		if lenBefore > 0 {
-			if head, err := ptm.pq.Peek(); err == nil && head.ScheduledTime().Equal(t.ScheduledTime()) {
+			// 比较逻辑变更
+			if head, err := ptm.pq.Peek(); err == nil && head.runAt.Equal(task.runAt) {
 				select {
 				case ptm.canceled <- struct{}{}:
 				default:
@@ -149,16 +152,14 @@ func (ptm *PriorityScheduledTaskManager[T]) PendNewTask(t T) error {
 	}
 }
 
-func (ptm *PriorityScheduledTaskManager[T]) FinishAndQuit() error {
+func (ptm *PriorityScheduledTaskManager) FinishAndQuit() error {
 	ptm.mu.Lock()
 	defer ptm.mu.Unlock()
 
-	// 等待队列清空
 	for ptm.pq.Len() > 0 {
 		ptm.cond.Wait()
 	}
 
-	// 只有第一次调用会执行，第二次调用直接跳过，不会 panic
 	ptm.stopOnce.Do(func() {
 		close(ptm.stopped)
 		ptm.cond.Broadcast()
@@ -167,7 +168,7 @@ func (ptm *PriorityScheduledTaskManager[T]) FinishAndQuit() error {
 	return nil
 }
 
-func (ptm *PriorityScheduledTaskManager[T]) isStopped() bool {
+func (ptm *PriorityScheduledTaskManager) isStopped() bool {
 	select {
 	case <-ptm.stopped:
 		return true
