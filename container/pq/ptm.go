@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 	"time"
-
 )
 
 // 内部使用的包装结构体，不再暴露给外部
@@ -165,6 +164,21 @@ func (ptm *PriorityScheduledTaskManager) FinishAndQuit() error {
 	})
 
 	return nil
+}
+
+func (ptm *PriorityScheduledTaskManager) GetAllTasks() []scheduledTask {
+	ptm.mu.Lock()
+	defer ptm.mu.Unlock()
+
+	// 复制内部数据为值副本，避免泄露内部状态
+	src := ptm.pq.data // type: []*scheduledTask
+	out := make([]scheduledTask, len(src))
+	for i, p := range src {
+		if p != nil {
+			out[i] = *p
+		}
+	}
+	return out
 }
 
 func (ptm *PriorityScheduledTaskManager) isStopped() bool {
