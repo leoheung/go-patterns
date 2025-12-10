@@ -8,8 +8,8 @@ import (
 
 // 内部使用的包装结构体，不再暴露给外部
 type scheduledTask struct {
-	action func()
-	runAt  time.Time
+	Action func()
+	RunAt  time.Time
 }
 
 // 移除泛型 [T]
@@ -26,7 +26,7 @@ type PriorityScheduledTaskManager struct {
 func NewPriorityScheduledTaskManager() (*PriorityScheduledTaskManager, error) {
 	// 比较逻辑改为比较内部结构体的 runAt
 	pq, err := NewPriorityQueue(0, func(a, b *scheduledTask) bool {
-		return a.runAt.Before(b.runAt)
+		return a.RunAt.Before(b.RunAt)
 	})
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func (ptm *PriorityScheduledTaskManager) watch() {
 		}
 
 		// 使用 t.runAt
-		toSleep := t.runAt.UTC().Sub(time.Now().UTC())
+		toSleep := t.RunAt.UTC().Sub(time.Now().UTC())
 		if toSleep > 0 {
 			ptm.mu.Unlock()
 			timer := time.NewTimer(toSleep)
@@ -75,7 +75,7 @@ func (ptm *PriorityScheduledTaskManager) watch() {
 					continue
 				}
 				// 执行闭包
-				t.action()
+				t.Action()
 				if ptm.pq.Len() == 0 {
 					ptm.cond.Broadcast()
 				}
@@ -96,7 +96,7 @@ func (ptm *PriorityScheduledTaskManager) watch() {
 				continue
 			}
 			// 执行闭包
-			t.action()
+			t.Action()
 			if ptm.pq.Len() == 0 {
 				ptm.cond.Broadcast()
 			}
@@ -126,8 +126,8 @@ func (ptm *PriorityScheduledTaskManager) PendNewTask(action func(), runAt time.T
 
 	// 内部包装
 	task := &scheduledTask{
-		action: action,
-		runAt:  runAt,
+		Action: action,
+		RunAt:  runAt,
 	}
 
 	lenBefore := ptm.pq.Len()
@@ -136,7 +136,7 @@ func (ptm *PriorityScheduledTaskManager) PendNewTask(action func(), runAt time.T
 
 		if lenBefore > 0 {
 			// 比较逻辑变更
-			if head, err := ptm.pq.Peek(); err == nil && head.runAt.Equal(task.runAt) {
+			if head, err := ptm.pq.Peek(); err == nil && head.RunAt.Equal(task.RunAt) {
 				select {
 				case ptm.canceled <- struct{}{}:
 				default:
