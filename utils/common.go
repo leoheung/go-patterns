@@ -1,8 +1,6 @@
 package utils
 
 import (
-	"encoding/json"
-	"fmt"
 	"reflect"
 	"time"
 )
@@ -39,12 +37,7 @@ func DelayDo(d time.Duration, fn func()) {
 
 // PPrint 格式化打印任意对象
 func PPrint(obj interface{}) {
-	b, err := json.MarshalIndent(obj, "", "  ")
-	if err != nil {
-		fmt.Println("PPrint error:", err)
-		return
-	}
-	fmt.Println(string(b))
+	PPrettyPrint(obj)
 }
 
 func Hold() {
