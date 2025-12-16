@@ -8,10 +8,11 @@ import (
 // RetryWork 执行工作函数，捕获panic或error并最多重试retryTimes次
 // work: 需要执行的工作函数
 // retryTimes: 最大重试次数（不包括首次执行）
-func RetryWork(work func() error, retryTimes int) {
+func RetryWork(work func() (any, error), retryTimes int) (any, error) {
 	totalAttempts := retryTimes + 1
-	for attempt := 0; attempt < totalAttempts; attempt++ {
-		var err error
+	var err error
+	var data any
+	for attempt := range totalAttempts {
 		func(attempt int) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -20,13 +21,13 @@ func RetryWork(work func() error, retryTimes int) {
 				}
 			}()
 			// 执行工作函数并获取返回的错误
-			err = work()
+			data, err = work()
 		}(attempt)
 
 		// 判断是否需要重试
 		if err == nil {
 			LogMessage(fmt.Sprintf("尝试 %d 成功", attempt+1))
-			return // 成功，退出重试
+			return data, err // 成功，退出重试
 		}
 
 		LogMessage(fmt.Sprintf("业务逻辑出现error/panic: %s", err.Error()))
@@ -39,4 +40,6 @@ func RetryWork(work func() error, retryTimes int) {
 			LogMessage(fmt.Sprintf("最后一次尝试 %d 失败: %v，已耗尽重试次数", attempt+1, err))
 		}
 	}
+
+	return nil,err
 }
