@@ -66,7 +66,7 @@ fmt.Println("服务器收到:", encryptedData.Gold, encryptedData.Pos)
 */
 
 type DynamicAES struct {
-	AESKey []byte // 内部使用 byte 数组处理更高效
+	aesKey []byte // 内部使用 byte 数组处理更高效
 }
 
 // NewDynamicAES 初始化
@@ -78,7 +78,7 @@ func NewDynamicAES(length int) *DynamicAES {
 	if _, err := io.ReadFull(rand.Reader, key); err != nil {
 		return nil
 	}
-	return &DynamicAES{AESKey: key}
+	return &DynamicAES{aesKey: key}
 }
 
 // GetKey 使用公钥加密当前的 AES 密钥 (用于 App 端发送给服务器)
@@ -99,7 +99,7 @@ func (d *DynamicAES) GetKey(pk string) (string, error) {
 	sharedSecret, _ := ephemeralPriv.ECDH(pub)
 
 	// 使用共享密钥加密真实的 AES Key
-	encryptedKey, _ := aesEncrypt(sharedSecret[:32], d.AESKey)
+	encryptedKey, _ := aesEncrypt(sharedSecret[:32], d.aesKey)
 
 	// 返回：临时公钥 + 加密后的 AES Key (组合成一个包发给服务器)
 	result := append(ephemeralPriv.PublicKey().Bytes(), encryptedKey...)
@@ -133,14 +133,14 @@ func (d *DynamicAES) SetKey(sk string, encryptedPackage string) error {
 	if err != nil {
 		return err
 	}
-	d.AESKey = realKey
+	d.aesKey = realKey
 	return nil
 }
 
 // Encrypt 加密任意对象为 Base64 字符串
 func (d *DynamicAES) Encrypt(obj any) (string, error) {
 	plaintext, _ := json.Marshal(obj)
-	ciphertext, err := aesEncrypt(d.AESKey, plaintext)
+	ciphertext, err := aesEncrypt(d.aesKey, plaintext)
 	if err != nil {
 		return "", err
 	}
@@ -150,7 +150,7 @@ func (d *DynamicAES) Encrypt(obj any) (string, error) {
 // Decrypt 解密 Base64 字符串到对象
 func (d *DynamicAES) Decrypt(cipherTextStr string, obj any) error {
 	ciphertext, _ := base64.StdEncoding.DecodeString(cipherTextStr)
-	plaintext, err := aesDecrypt(d.AESKey, ciphertext)
+	plaintext, err := aesDecrypt(d.aesKey, ciphertext)
 	if err != nil {
 		return err
 	}
