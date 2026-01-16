@@ -2,6 +2,7 @@ package cryptography
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
 )
 
@@ -23,4 +24,23 @@ func RandString(n int) string {
 		out[i] = letters[num.Int64()]
 	}
 	return string(out)
+}
+
+// RandUUID 生成一个符合 RFC 4122 标准的 Version 4 UUID。
+// 返回的格式为 "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"。
+// 如果生成随机数失败，返回空字符串。
+func RandUUID() string {
+	uuid := make([]byte, 16)
+	_, err := rand.Read(uuid)
+	if err != nil {
+		return ""
+	}
+
+	// 设置版本号 (Version 4)
+	uuid[6] = (uuid[6] & 0x0f) | 0x40
+	// 设置变体 (RFC 4122 Variant)
+	uuid[8] = (uuid[8] & 0x3f) | 0x80
+
+	return fmt.Sprintf("%x-%x-%x-%x-%x",
+		uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
 }
