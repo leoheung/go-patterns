@@ -17,6 +17,7 @@ type Cache struct {
 type CacheItem struct {
 	data            any
 	cachingDuration time.Duration
+	cancelDelete    chan struct{}
 }
 
 func NewCache() (*Cache, error) {
@@ -41,7 +42,7 @@ func (c *Cache) Add(key string, data any, cachingDuration time.Duration) error {
 		return fmt.Errorf("failed to push the data with key: %s: the key already exists, please use another key", key)
 	}
 
-	err := c.manager.PendNewTask(func() {
+	cancel, err := c.manager.PendNewTask(func() {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 
@@ -56,6 +57,7 @@ func (c *Cache) Add(key string, data any, cachingDuration time.Duration) error {
 	c.buffer[key] = &CacheItem{
 		data:            data,
 		cachingDuration: cachingDuration,
+		cancelDelete:    cancel,
 	}
 
 	return nil
@@ -67,12 +69,29 @@ func (c *Cache) Get(key string) any {
 
 	item, ok := c.buffer[key]
 	if ok {
+		// 嘗試發送取消訊號，非阻塞以防卡死
+		select {
+		case item.cancelDelete <- struct{}{}:
+		default:
+		}
+
+		newCancel, err := c.manager.PendNewTask(func() {
+			c.mu.Lock()
+			defer c.mu.Unlock()
+
+			delete(c.buffer, key)
+
+		}, time.Now().Add(item.cachingDuration))
+		if err != nil {
+			<-item.cancelDelete
+		} else {
+			item.cancelDelete = newCancel
+		}
 		return item.data
 	} else {
 		return nil
 	}
 }
-
 
 func (c *Cache) Delete(key string) {
 	c.mu.Lock()
