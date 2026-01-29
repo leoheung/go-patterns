@@ -223,7 +223,7 @@ func (ptm *PriorityScheduledTaskManager) isStopped() bool {
 func (ptm *PriorityScheduledTaskManager) String() string {
 	var ret strings.Builder
 	tasks := ptm.GetAllTasks()
-	fmt.Fprintf(&ret, "total %d scheduled tasks", len(tasks))
+	fmt.Fprintf(&ret, "total %d scheduled tasks\n", len(tasks))
 	for idx, t := range tasks {
 		isCanceled := false
 		select {

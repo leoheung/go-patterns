@@ -110,7 +110,7 @@ func (c *Cache) String() string {
 	defer c.mu.RUnlock()
 
 	var ret strings.Builder
-	fmt.Fprintf(&ret, "total %d cache items", len(c.buffer))
+	fmt.Fprintf(&ret, "total %d cache items\n", len(c.buffer))
 	for k := range c.buffer {
 		ret.WriteString(k)
 		ret.WriteString(",")
