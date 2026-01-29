@@ -19,3 +19,21 @@ func LogMessage(message string) {
 		log.Println(message) // 生产环境使用 log
 	}
 }
+
+func DevLogError(errMsg string) {
+	if IsDev() {
+		PrintlnColor(Red, errMsg)
+	}
+}
+
+func DevLogInfo(infoMsg string) {
+	if IsDev() {
+		PrintlnColor(BrightBlue, infoMsg)
+	}
+}
+
+func DevLogSuccess(successMsg string) {
+	if IsDev() {
+		PrintlnColor(Green, successMsg)
+	}
+}

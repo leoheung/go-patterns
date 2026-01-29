@@ -2,6 +2,7 @@ package pq
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -217,4 +218,20 @@ func (ptm *PriorityScheduledTaskManager) isStopped() bool {
 	default:
 		return false
 	}
+}
+
+func (ptm *PriorityScheduledTaskManager) String() string {
+	var ret strings.Builder
+	tasks := ptm.GetAllTasks()
+	fmt.Fprintf(&ret, "total %d scheduled tasks", len(tasks))
+	for idx, t := range tasks {
+		isCanceled := false
+		select {
+		case <-t.TaskCanceld:
+			isCanceled = true
+		default:
+		}
+		fmt.Fprintf(&ret, "scheduled task %d: runAt: %s, isCanceled: %v\n", (idx + 1), t.RunAt.String(), isCanceled)
+	}
+	return ret.String()
 }

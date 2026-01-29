@@ -2,10 +2,12 @@ package cache
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/leoheung/go-patterns/container/pq"
+	"github.com/leoheung/go-patterns/utils"
 )
 
 type Cache struct {
@@ -72,7 +74,9 @@ func (c *Cache) Get(key string) any {
 		// 嘗試發送取消訊號，非阻塞以防卡死
 		select {
 		case item.cancelDelete <- struct{}{}:
+			utils.DevLogSuccess(fmt.Sprintf("[成功]cancel %s 的expire", key))
 		default:
+			utils.DevLogError(fmt.Sprintf("[失敗]cancel %s 的expire", key))
 		}
 
 		newCancel, err := c.manager.PendNewTask(func() {
@@ -84,7 +88,9 @@ func (c *Cache) Get(key string) any {
 		}, time.Now().Add(item.cachingDuration))
 		if err != nil {
 			<-item.cancelDelete
+			utils.DevLogError(fmt.Sprintf("[失敗]安排 %s 的新expire", key))
 		} else {
+			utils.DevLogSuccess(fmt.Sprintf("[成功]安排 %s 的新expire", key))
 			item.cancelDelete = newCancel
 		}
 		return item.data
@@ -97,4 +103,20 @@ func (c *Cache) Delete(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.buffer, key)
+}
+
+func (c *Cache) String() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	var ret strings.Builder
+	fmt.Fprintf(&ret, "total %d cache items", len(c.buffer))
+	for k := range c.buffer {
+		ret.WriteString(k)
+		ret.WriteString(",")
+	}
+	ret.WriteString("\n")
+
+	ret.WriteString(c.manager.String())
+	return ret.String()
 }
