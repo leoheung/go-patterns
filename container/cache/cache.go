@@ -19,7 +19,7 @@ type Cache struct {
 type CacheItem struct {
 	data            any
 	cachingDuration time.Duration
-	cancelDelete    chan struct{}
+	cancelDelete    *pq.Cancelable
 }
 
 func NewCache() (*Cache, error) {
@@ -71,11 +71,9 @@ func (c *Cache) Get(key string) any {
 
 	item, ok := c.buffer[key]
 	if ok {
-		// 嘗試發送取消訊號，非阻塞以防卡死
-		select {
-		case item.cancelDelete <- struct{}{}:
+		if item.cancelDelete.TryCancel() {
 			utils.DevLogSuccess(fmt.Sprintf("[成功]cancel %s 的expire", key))
-		default:
+		} else {
 			utils.DevLogError(fmt.Sprintf("[失敗]cancel %s 的expire", key))
 		}
 
@@ -87,7 +85,7 @@ func (c *Cache) Get(key string) any {
 
 		}, time.Now().Add(item.cachingDuration))
 		if err != nil {
-			<-item.cancelDelete
+			item.cancelDelete.TryRecover()
 			utils.DevLogError(fmt.Sprintf("[失敗]安排 %s 的新expire", key))
 		} else {
 			utils.DevLogSuccess(fmt.Sprintf("[成功]安排 %s 的新expire", key))

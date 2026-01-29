@@ -7,11 +7,46 @@ import (
 	"time"
 )
 
+type Cancelable struct {
+	canceled chan struct{}
+	mu       sync.Mutex
+}
+
+func (cancel *Cancelable) TryCancel() bool {
+	cancel.mu.Lock()
+	defer cancel.mu.Unlock()
+	select {
+	case cancel.canceled <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+
+}
+
+func (cancel *Cancelable) TryRecover() bool {
+	cancel.mu.Lock()
+	defer cancel.mu.Unlock()
+	select {
+	case <-cancel.canceled:
+		return true
+	default:
+		return false
+	}
+
+}
+
+func (cancel *Cancelable) IsCanceled() bool {
+	cancel.mu.Lock()
+	defer cancel.mu.Unlock()
+	return len(cancel.canceled) > 0
+}
+
 // 内部使用的包装结构体，不再暴露给外部
 type scheduledTask struct {
 	Action      func()
 	RunAt       time.Time
-	TaskCanceld chan struct{}
+	TaskCanceld *Cancelable
 }
 
 // 移除泛型 [T]
@@ -69,7 +104,7 @@ func (ptm *PriorityScheduledTaskManager) watch() {
 			ptm.mu.Unlock()
 			timer := time.NewTimer(toSleep)
 			select {
-			case <-t.TaskCanceld:
+			case <-t.TaskCanceld.canceled:
 				ptm.mu.Lock()
 				// 再次檢查隊頭是否仍是 t，防止因為插入了更早的任務導致 Dequeue 錯誤的任務
 				head, _ := ptm.pq.Peek()
@@ -87,7 +122,7 @@ func (ptm *PriorityScheduledTaskManager) watch() {
 					// 我們無法從 PQ 中間移除 t，只能把取消訊號放回（因為 buffer 為 1，非阻塞）
 					// 等 t 再次浮到隊頭時再處理
 					select {
-					case t.TaskCanceld <- struct{}{}:
+					case t.TaskCanceld.canceled <- struct{}{}:
 					default:
 					}
 				}
@@ -124,7 +159,7 @@ func (ptm *PriorityScheduledTaskManager) watch() {
 			// 執行閉包
 			// 最後一次檢查是否被取消
 			select {
-			case <-t.TaskCanceld:
+			case <-t.TaskCanceld.canceled:
 				// 被取消了，不執行
 			default:
 				t.Action()
@@ -137,7 +172,7 @@ func (ptm *PriorityScheduledTaskManager) watch() {
 /* exposed public functions */
 
 // API 变更：直接传入函数和时间
-func (ptm *PriorityScheduledTaskManager) PendNewTask(action func(), runAt time.Time) (chan struct{}, error) {
+func (ptm *PriorityScheduledTaskManager) PendNewTask(action func(), runAt time.Time) (*Cancelable, error) {
 	if action == nil {
 		return nil, fmt.Errorf("action is nil")
 	}
@@ -157,7 +192,7 @@ func (ptm *PriorityScheduledTaskManager) PendNewTask(action func(), runAt time.T
 	task := &scheduledTask{
 		Action:      action,
 		RunAt:       runAt,
-		TaskCanceld: make(chan struct{}, 1),
+		TaskCanceld: &Cancelable{canceled: make(chan struct{}, 1)},
 	}
 
 	lenBefore := ptm.pq.Len()
@@ -205,7 +240,14 @@ func (ptm *PriorityScheduledTaskManager) GetAllTasks() []scheduledTask {
 	out := make([]scheduledTask, len(src))
 	for i, p := range src {
 		if p != nil {
-			out[i] = *p
+			item := *p
+			item.TaskCanceld = &Cancelable{canceled: make(chan struct{}, 1)}
+
+			if p.TaskCanceld.IsCanceled() {
+				item.TaskCanceld.canceled <- struct{}{}
+			}
+
+			out[i] = item
 		}
 	}
 	return out
@@ -225,12 +267,7 @@ func (ptm *PriorityScheduledTaskManager) String() string {
 	tasks := ptm.GetAllTasks()
 	fmt.Fprintf(&ret, "total %d scheduled tasks\n", len(tasks))
 	for idx, t := range tasks {
-		isCanceled := false
-		select {
-		case <-t.TaskCanceld:
-			isCanceled = true
-		default:
-		}
+		isCanceled := t.TaskCanceld.IsCanceled()
 		fmt.Fprintf(&ret, "scheduled task %d: runAt: %s, isCanceled: %v\n", (idx + 1), t.RunAt.String(), isCanceled)
 	}
 	return ret.String()
