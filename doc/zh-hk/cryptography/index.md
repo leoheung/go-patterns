@@ -9,7 +9,7 @@
 支援密鑰輪換的動態 AES 加密。
 
 ```go
-import "github.com/leoxiang66/go-patterns/cryptography"
+import "github.com/leoxiang66/go-patterns/cryptography" 
 
 // 以密鑰建立 AES 加密器
 encrypter := cryptography.NewDynamicAES([]byte("your-32-byte-key-here!!!!!!!!!!!!"))
