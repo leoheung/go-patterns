@@ -31,14 +31,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: doc/package-lock.json
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
       - name: Install dependencies
-        run: cd doc && npm install
+        run: |
+          cd doc
+          rm -rf node_modules
+          npm install
 
       - name: Build with VitePress
         run: cd doc && npm run docs:build
