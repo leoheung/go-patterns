@@ -30,3 +30,4 @@ go.work.sum
 doc/node_modules/
 doc/.vitepress/dist/
 doc/.vitepress/cache/
+doc/package-lock.json
