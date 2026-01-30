@@ -1,87 +1,113 @@
 # Utils
 
-The `utils` package provides utility functions for common operations.
+The `utils` package provides a collection of utility functions for common operations, covering logging, retry mechanisms, timeout control, object beautification, and numeric processing.
 
 ## Modules
 
-### Logging
+### 1. Logging and Environment Awareness
 
-Check if in development environment and log messages accordingly.
+Automatically identifies development or production environments and adopts different logging methods.
 
 ```go
 import "github.com/leoheung/go-patterns/utils"
 
-// Check if in development environment
-isDev := utils.IsDev() // Returns true if env=dev
+// Check if in development environment (determined by env == "dev" environment variable)
+isDev := utils.IsDev()
 
-// Log message (uses fmt.Println in dev, log.Println in prod)
+// Log message (uses fmt.Println in dev, standard library log in prod)
 utils.LogMessage("Hello, world!")
+
+// Dev-only colored logs (outputs only when IsDev() is true)
+utils.DevLogError("This is an error message")
+utils.DevLogInfo("This is an info message")
+utils.DevLogSuccess("This is a success message")
 ```
 
-### Retry
+### 2. Retry and Timeout Control
 
-Retry a function with error/panic handling.
+Provides protection mechanisms for unstable operations.
 
 ```go
-// Retry a function with error/panic handling
-// work: Function to execute
-// retryTimes: Maximum retry attempts (excluding first try)
-utils.RetryWork(
-    func() error {
-        // Operation that might fail
-        return nil // or error
-    },
-    3, // Retry 3 times if failed
-)
+// Retry a work function
+// work: function to execute, returns (any, error)
+// retryTimes: number of retries after initial failure
+data, err := utils.RetryWork(func() (any, error) {
+    // business logic
+    return "result", nil
+}, 3)
+
+// Execution with timeout
+// Returns fmt.Errorf("timeout") if timed out
+res, err := utils.TimeoutWork(func() (any, error) {
+    time.Sleep(2 * time.Second)
+    return "done", nil
+}, 1 * time.Second)
 ```
 
-### Timeout
+### 3. Object Beautification and JSON Processing
 
-Execute a function with a timeout.
+Advanced beautification tools based on `go-spew`.
 
 ```go
-// Execute function with timeout
-err := utils.WithTimeout(5*time.Second, func() error {
-    // Long running operation
-    return nil
+// Formatted printing of any object (common for debugging)
+utils.PPrint(myStruct)
+utils.PPrettyPrint(myStruct)
+
+// Get a pretty string representation of an object (no direct printing)
+str := utils.PrettyObjStr(myStruct)
+
+// Serialize an object to a pretty JSON string (falls back to PrettyObjStr on failure)
+jsonStr := utils.JSONalizeStr(myStruct)
+
+// Deserialize a JSON string to an object (must pass a pointer)
+err := utils.DeJSONalizeStr(jsonStr, &myTarget)
+```
+
+### 4. Colored Terminal Output
+
+```go
+// Output colored text using ANSI escape sequences
+utils.PrintlnColor(utils.Red, "Red text")
+utils.PrintlnColor(utils.Green, "Green text")
+utils.PrintlnColor(utils.BrightBlue, "Bright blue text")
+
+// Available color constants:
+// utils.Red, utils.Green, utils.BrightBlue, utils.Magenta, utils.Cyan
+```
+
+### 5. Number Utils
+
+Simulates numeric processing found in dynamic languages.
+
+```go
+// Parse a string into a Number object
+n, err := utils.ParseNumber("100.5")
+
+// Get values in different types
+f := n.Float()   // 100.5
+i := n.Int()     // 100
+i64 := n.Int64() // 100
+
+// Check if it's an integer (no fractional part)
+isUint := n.IsInteger() // false
+```
+
+### 6. Common Helpers
+
+```go
+// Check if any value is nil (supports Interface, Slice, Map, Ptr, etc.)
+isNull := utils.IsNil(someVar)
+
+// Check if a string consists entirely of digits
+allDigits := utils.IsDigits("12345")
+
+// Delayed function execution (blocking)
+utils.DelayDo(500 * time.Millisecond, func() {
+    fmt.Println("Delayed execution")
 })
-```
 
-### Pretty Print
-
-Pretty print objects for debugging.
-
-```go
-// Pretty print an object
-utils.PrettyPrint(obj)
-
-// Pretty print with label
-utils.PrettyPrintWithLabel("User", user)
-```
-
-### Color Print
-
-Print colored messages to the console.
-
-```go
-// Print in different colors
-utils.Red("Error message")
-utils.Green("Success message")
-utils.Yellow("Warning message")
-utils.Blue("Info message")
-```
-
-### Number Utils
-
-Utility functions for number operations.
-
-```go
-// Min/Max functions
-min := utils.Min(1, 2, 3) // 1
-max := utils.Max(1, 2, 3) // 3
-
-// Clamp function
-clamped := utils.Clamp(10, 0, 5) // 5
+// Block the current Goroutine indefinitely
+utils.Hold()
 ```
 
 ## Complete Example
@@ -90,29 +116,34 @@ clamped := utils.Clamp(10, 0, 5) // 5
 package main
 
 import (
+    "fmt"
     "github.com/leoheung/go-patterns/utils"
-    "time"
 )
 
 func main() {
-    // Set environment to development
-    // os.Setenv("env", "dev")
+    // 1. Formatted output
+    user := struct {
+        Name string
+        Age  int
+    }{"Leon", 25}
+    
+    fmt.Println("User data:")
+    utils.PPrint(user)
 
-    // Retry a potentially failing operation
-    utils.RetryWork(func() error {
-        utils.LogMessage("Attempting operation...")
-        // Simulate failure
-        if time.Now().Nanosecond()%2 == 0 {
-            panic("simulated panic")
+    // 2. Retry logic
+    count := 0
+    utils.RetryWork(func() (any, error) {
+        count++
+        if count < 2 {
+            return nil, fmt.Errorf("temporary error")
         }
-        return nil
+        return "Success", nil
     }, 3)
 }
 ```
 
 ## Features
 
-- **Environment-aware**: Different behavior in dev/prod
-- **Error handling**: Retry mechanisms with panic recovery
-- **Debugging tools**: Pretty printing and color output
-- **Common utilities**: Min, Max, Clamp functions
+- **Robustness**: Both retry and timeout functions include `recover()` internally to prevent business logic panics from crashing the program.
+- **Ease of Use**: Simplifies tedious type pointer conversions and reflection checks in Go.
+- **Debug Friendly**: Provides multiple levels of object serialization and printing tools.
