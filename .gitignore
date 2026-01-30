@@ -8,6 +8,8 @@
 *.so
 *.dylib
 
+.trae
+
 # Test binary, built with `go test -c`
 *.test
 tests/
@@ -23,3 +25,9 @@ go.work.sum
 
 # env file
 .env
+
+# VitePress
+doc/node_modules/
+doc/.vitepress/dist/
+doc/.vitepress/cache/
+doc/package-lock.json
