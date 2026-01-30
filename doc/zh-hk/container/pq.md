@@ -1,6 +1,6 @@
-# 優先隊列
+# 優先隊列與調度器
 
-通用優先隊列實現，支援自定義優先級比較。
+提供通用的優先隊列實現及基於時間的任務調度管理器。
 
 ## 安裝
 
@@ -8,9 +8,9 @@
 import "github.com/leoheung/go-patterns/container/pq"
 ```
 
-## API 參考
+## 1. 優先隊列 (Priority Queue)
 
-### 建立優先隊列
+### 建立隊列
 
 ```go
 // 以指定容量及比較函數建立新的優先隊列
@@ -18,32 +18,64 @@ import "github.com/leoheung/go-patterns/container/pq"
 pq, err := pq.NewPriorityQueue[int](10, func(a, b int) bool { return a < b })
 ```
 
-### 入隊
+### 基本操作
 
 ```go
-// 將項目加入隊列
+// 入隊
 err := pq.Enqueue(5)
-```
 
-### 出隊
-
-```go
-// 取出最高優先級的項目
+// 出隊（取出最高優先級的項目）
 item, err := pq.Dequeue()
-```
 
-### 查看
-
-```go
-// 取得最高優先級的項目而不移除
+// 查看（取得最高優先級的項目而不移除）
 item, err := pq.Peek()
-```
 
-### 隊列長度
-
-```go
 // 取得目前隊列長度
 length := pq.Len()
+```
+
+## 2. 任務調度管理器 (PriorityScheduledTaskManager)
+
+用於在指定時間執行特定任務的調度器。
+
+### 建立管理器
+
+```go
+ptm, err := pq.NewPriorityScheduledTaskManager()
+if err != nil {
+    // 處理錯誤
+}
+```
+
+### 提交任務
+
+```go
+// 提交一個在 5 秒後執行的任務
+cancel, err := ptm.PendNewTask(func() {
+    fmt.Println("任務執行中...")
+}, time.Now().Add(5 * time.Second))
+```
+
+### 停止管理器
+
+```go
+// 等待所有任務完成後優雅停止
+err := ptm.FinishAndQuit()
+```
+
+## 3. 可取消對象 (Cancelable)
+
+`PendNewTask` 返回的 `Cancelable` 對象可用於管理任務狀態。
+
+```go
+// 取消任務
+success := cancel.Cancel()
+
+// 恢復任務（若尚未執行）
+success := cancel.Recover()
+
+// 檢查是否已取消
+isCanceled := cancel.IsCanceled()
 ```
 
 ## 完整範例
@@ -53,65 +85,44 @@ package main
 
 import (
     "fmt"
+    "time"
     "github.com/leoheung/go-patterns/container/pq"
 )
 
-type Task struct {
-    ID       int
-    Priority int
-    Name     string
-}
-
 func main() {
-    // 建立優先隊列，高優先級任務優先處理
-    pq, err := pq.NewPriorityQueue[Task](5, func(a, b Task) bool {
-        return a.Priority > b.Priority
+    // 1. 使用調度器
+    ptm, _ := pq.NewPriorityScheduledTaskManager()
+
+    // 提交一個任務
+    cancel, _ := ptm.PendNewTask(func() {
+        fmt.Println("這是一個延遲任務")
+    }, time.Now().Add(1 * time.Second))
+
+    // 隨後決定取消它
+    if cancel.Cancel() {
+        fmt.Println("任務已成功取消")
+    }
+
+    // 2. 使用優先隊列
+    queue, _ := pq.NewPriorityQueue[string](5, func(a, b string) bool {
+        return len(a) < len(b) // 短字符串優先
     })
-    if err != nil {
-        fmt.Printf("建立優先隊列錯誤: %v\n", err)
-        return
-    }
 
-    // 加入不同優先級的任務
-    tasks := []Task{
-        {ID: 1, Priority: 3, Name: "任務 1"},
-        {ID: 2, Priority: 1, Name: "任務 2"},
-        {ID: 3, Priority: 5, Name: "任務 3"},
-        {ID: 4, Priority: 2, Name: "任務 4"},
-        {ID: 5, Priority: 4, Name: "任務 5"},
-    }
+    queue.Enqueue("apple")
+    queue.Enqueue("go")
+    queue.Enqueue("banana")
 
-    for _, task := range tasks {
-        if err := pq.Enqueue(task); err != nil {
-            fmt.Printf("任務 %d 入隊錯誤: %v\n", task.ID, err)
-        }
-    }
+    item, _ := queue.Dequeue()
+    fmt.Printf("優先級最高（最短）: %s\n", item) // 輸出: go
 
-    // 按優先級順序處理任務
-    for pq.Len() > 0 {
-        task, err := pq.Dequeue()
-        if err != nil {
-            fmt.Printf("任務出隊錯誤: %v\n", err)
-            continue
-        }
-        fmt.Printf("處理任務 %d: %s (優先級: %d)\n", task.ID, task.Name, task.Priority)
-    }
+    // 停止調度器
+    ptm.FinishAndQuit()
 }
-```
-
-## 輸出
-
-```
-處理任務 3: 任務 3 (優先級: 5)
-處理任務 5: 任務 5 (優先級: 4)
-處理任務 1: 任務 1 (優先級: 3)
-處理任務 4: 任務 4 (優先級: 2)
-處理任務 2: 任務 2 (優先級: 1)
 ```
 
 ## 特性
 
-- **支援泛型**: 適用於任何類型
-- **自定義比較**: 定義你自己的優先級邏輯
-- **二元堆積**: 高效的 O(log n) 入隊/出隊操作
-- **類型安全**: 編譯時類型檢查
+- **泛型支援**: `PriorityQueue` 適用於任何數據類型
+- **精確調度**: `PriorityScheduledTaskManager` 內部使用優先隊列管理執行時間，確保下一個任務總是準時觸發
+- **任務控制**: 每個調度任務都擁有獨立的 `Cancelable` 控制器
+- **併發安全**: 所有操作均受互斥鎖保護
