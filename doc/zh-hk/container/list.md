@@ -5,7 +5,7 @@
 ## 安裝
 
 ```go
-import "github.com/leoxiang66/go-patterns/container/list"
+import "github.com/leoheung/go-patterns/container/list"
 ```
 
 ## 基本操作
@@ -140,25 +140,25 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/container/list"
+    "github.com/leoheung/go-patterns/container/list"
 )
 
 func main() {
     // 建立並填充列表
     l := list.From([]int{3, 1, 4, 1, 5, 9, 2, 6})
-    
+
     // 過濾偶數
     evens := l.Filter(func(v, i int) bool { return v%2 == 0 })
     fmt.Println("偶數:", evens.ToSlice())
-    
+
     // 映射為平方
     squares := list.Map(evens, func(v, i int) int { return v * v })
     fmt.Println("平方:", squares.ToSlice())
-    
+
     // 排序
     squares.Sort(func(a, b int) bool { return a < b })
     fmt.Println("排序後:", squares.ToSlice())
-    
+
     // 歸納為總和
     sum := list.Reduce(squares, 0, func(acc, v, i int) int { return acc + v })
     fmt.Println("總和:", sum)

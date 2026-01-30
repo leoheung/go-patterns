@@ -5,7 +5,7 @@ A generic dynamic array implementation supporting Python list and JavaScript Arr
 ## Installation
 
 ```go
-import "github.com/leoxiang66/go-patterns/container/list"
+import "github.com/leoheung/go-patterns/container/list"
 ```
 
 ## Basic Operations
@@ -140,25 +140,25 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/container/list"
+    "github.com/leoheung/go-patterns/container/list"
 )
 
 func main() {
     // Create and populate list
     l := list.From([]int{3, 1, 4, 1, 5, 9, 2, 6})
-    
+
     // Filter even numbers
     evens := l.Filter(func(v, i int) bool { return v%2 == 0 })
     fmt.Println("Even numbers:", evens.ToSlice())
-    
+
     // Map to squares
     squares := list.Map(evens, func(v, i int) int { return v * v })
     fmt.Println("Squares:", squares.ToSlice())
-    
+
     // Sort
     squares.Sort(func(a, b int) bool { return a < b })
     fmt.Println("Sorted:", squares.ToSlice())
-    
+
     // Reduce to sum
     sum := list.Reduce(squares, 0, func(acc, v, i int) int { return acc + v })
     fmt.Println("Sum:", sum)

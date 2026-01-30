@@ -5,7 +5,7 @@
 ## 安裝
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/barrier"
+import "github.com/leoheung/go-patterns/parallel/barrier"
 ```
 
 ## API 參考
@@ -33,7 +33,7 @@ import (
     "fmt"
     "sync"
     "time"
-    "github.com/leoxiang66/go-patterns/parallel/barrier"
+    "github.com/leoheung/go-patterns/parallel/barrier"
 )
 
 func main() {
@@ -45,13 +45,13 @@ func main() {
         wg.Add(1)
         go func(id int) {
             defer wg.Done()
-            
+
             fmt.Printf("Worker %d: 階段 1\n", id)
             time.Sleep(time.Duration(id*100) * time.Millisecond)
-            
+
             // 等待所有 Worker 到達此點
             b.Wait()
-            
+
             fmt.Printf("Worker %d: 階段 2 (所有 Worker 已到達 Barrier)\n", id)
         }(i)
     }
@@ -76,7 +76,7 @@ Worker 2: 階段 2 (所有 Worker 已到達 Barrier)
 使用條件變數的替代實現：
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/barrier"
+import "github.com/leoheung/go-patterns/parallel/barrier"
 
 // 使用條件變數建立 Barrier
 b := barrier.NewBarrierWithCond(5)

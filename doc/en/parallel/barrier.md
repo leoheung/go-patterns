@@ -5,7 +5,7 @@ Synchronization primitive that allows multiple goroutines to wait for each other
 ## Installation
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/barrier"
+import "github.com/leoheung/go-patterns/parallel/barrier"
 ```
 
 ## API Reference
@@ -14,14 +14,21 @@ import "github.com/leoxiang66/go-patterns/parallel/barrier"
 
 ```go
 // Create a new barrier for N goroutines
-b := barrier.NewBarrier(5)
+b := barrier.NewEasyBarrier(5)
 ```
 
-### Wait
+### Done
 
 ```go
-// Wait for all goroutines to reach this point
-b.Wait()
+// Signal that a worker has completed
+b.Done()
+```
+
+### Sync
+
+```go
+// Wait for all workers to complete
+b.Sync()
 ```
 
 ## Complete Example
@@ -31,32 +38,27 @@ package main
 
 import (
     "fmt"
-    "sync"
     "time"
-    "github.com/leoxiang66/go-patterns/parallel/barrier"
+    "github.com/leoheung/go-patterns/parallel/barrier"
 )
 
 func main() {
     const numWorkers = 3
-    b := barrier.NewBarrier(numWorkers)
-    var wg sync.WaitGroup
+    b := barrier.NewEasyBarrier(numWorkers)
 
     for i := 0; i < numWorkers; i++ {
-        wg.Add(1)
         go func(id int) {
-            defer wg.Done()
-            
             fmt.Printf("Worker %d: Phase 1\n", id)
             time.Sleep(time.Duration(id*100) * time.Millisecond)
-            
-            // Wait for all workers to reach this point
-            b.Wait()
-            
-            fmt.Printf("Worker %d: Phase 2 (all workers reached barrier)\n", id)
+
+            // Signal completion
+            b.Done()
         }(i)
     }
 
-    wg.Wait()
+    // Wait for all workers to complete
+    b.Sync()
+    fmt.Println("All workers reached barrier")
 }
 ```
 
@@ -66,25 +68,12 @@ func main() {
 Worker 0: Phase 1
 Worker 1: Phase 1
 Worker 2: Phase 1
-Worker 0: Phase 2 (all workers reached barrier)
-Worker 1: Phase 2 (all workers reached barrier)
-Worker 2: Phase 2 (all workers reached barrier)
-```
-
-## Barrier with Condition Variable
-
-An alternative implementation using condition variables:
-
-```go
-import "github.com/leoxiang66/go-patterns/parallel/barrier"
-
-// Create barrier with condition variable
-b := barrier.NewBarrierWithCond(5)
-b.Wait()
+All workers reached barrier
 ```
 
 ## Features
 
-- **Cyclic**: Can be reused after all goroutines pass through
+- **Simple**: Easy to use synchronization mechanism
 - **Thread-safe**: Safe for concurrent use
-- **Two implementations**: Channel-based and condition variable-based
+- **Channel-based**: Uses channels for synchronization
+- **Single implementation**: EasyBarrier implementation

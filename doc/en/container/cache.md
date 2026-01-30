@@ -5,7 +5,7 @@ A cache implementation for storing and retrieving data with TTL support.
 ## Installation
 
 ```go
-import "github.com/leoxiang66/go-patterns/container/cache"
+import "github.com/leoheung/go-patterns/container/cache"
 ```
 
 ## API Reference
@@ -14,27 +14,28 @@ import "github.com/leoxiang66/go-patterns/container/cache"
 
 ```go
 // Create a new cache with default settings
-c := cache.NewCache()
-
-// Create a cache with custom TTL
-c := cache.NewCacheWithTTL(5 * time.Minute)
+c, err := cache.NewCache()
+if err != nil {
+    // Handle error
+}
 ```
 
-### Set
+### Add
 
 ```go
-// Set a value with default TTL
-c.Set("key", "value")
-
-// Set a value with custom TTL
-c.SetWithTTL("key", "value", 10*time.Minute)
+// Add a value with TTL
+err := c.Add("key", "value", 5*time.Minute)
+if err != nil {
+    // Handle error
+}
 ```
 
 ### Get
 
 ```go
 // Get a value
-if value, ok := c.Get("key"); ok {
+value := c.Get("key")
+if value != nil {
     // Use value
 }
 ```
@@ -44,19 +45,13 @@ if value, ok := c.Get("key"); ok {
 ```go
 // Delete a key
 c.Delete("key")
-
-// Clear all entries
-c.Clear()
 ```
 
 ### Cache Operations
 
 ```go
-// Check if key exists
-exists := c.Has("key")
-
-// Get cache size
-size := c.Len()
+// Get cache status as string
+status := c.String()
 ```
 
 ## Complete Example
@@ -67,38 +62,40 @@ package main
 import (
     "fmt"
     "time"
-    "github.com/leoxiang66/go-patterns/container/cache"
+    "github.com/leoheung/go-patterns/container/cache"
 )
 
 func main() {
-    // Create a cache with 5 minute TTL
-    c := cache.NewCacheWithTTL(5 * time.Minute)
+    // Create a cache
+    c, err := cache.NewCache()
+    if err != nil {
+        fmt.Printf("Error creating cache: %v\n", err)
+        return
+    }
 
-    // Set values
-    c.Set("user:1", "Alice")
-    c.Set("user:2", "Bob")
+    // Add values with TTL
+    err = c.Add("user:1", "Alice", 5*time.Minute)
+    if err != nil {
+        fmt.Printf("Error adding user:1: %v\n", err)
+    }
+
+    err = c.Add("user:2", "Bob", 10*time.Minute)
+    if err != nil {
+        fmt.Printf("Error adding user:2: %v\n", err)
+    }
 
     // Get value
-    if user, ok := c.Get("user:1"); ok {
-        fmt.Printf("User 1: %s\n", user)
+    value := c.Get("user:1")
+    if value != nil {
+        fmt.Printf("User 1: %v\n", value)
     }
-
-    // Set with custom TTL
-    c.SetWithTTL("session:abc", "active", 30*time.Minute)
-
-    // Check existence
-    if c.Has("user:2") {
-        fmt.Println("User 2 exists")
-    }
-
-    // Get cache size
-    fmt.Printf("Cache size: %d\n", c.Len())
 
     // Delete a key
     c.Delete("user:1")
 
-    // Clear all
-    c.Clear()
+    // Get cache status
+    fmt.Println("Cache status:")
+    fmt.Println(c.String())
 }
 ```
 
@@ -106,5 +103,5 @@ func main() {
 
 - **TTL support**: Automatic expiration of entries
 - **Thread-safe**: Safe for concurrent use
-- **Simple API**: Easy to use Get/Set interface
+- **Simple API**: Easy to use Add/Get interface
 - **Memory efficient**: Automatic cleanup of expired entries

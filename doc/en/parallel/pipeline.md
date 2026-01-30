@@ -5,7 +5,7 @@ Pipeline patterns for data processing.
 ## Installation
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/pipeline"
+import "github.com/leoheung/go-patterns/parallel/pipeline"
 ```
 
 ## API Reference
@@ -63,7 +63,7 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/parallel/pipeline"
+    "github.com/leoheung/go-patterns/parallel/pipeline"
 )
 
 func main() {
@@ -71,14 +71,14 @@ func main() {
     input := make(chan int)
     quit := make(chan struct{})
     defer close(quit)
-    
+
     // Create pipeline: Square -> Double
     square := func(x int) int { return x * x }
     double := func(x int) int { return x * 2 }
-    
+
     stage1 := pipeline.AddOnPipe(quit, square, input)
     stage2 := pipeline.AddOnPipe(quit, double, stage1)
-    
+
     // Send data
     go func() {
         for i := 1; i <= 5; i++ {
@@ -86,7 +86,7 @@ func main() {
         }
         close(input)
     }()
-    
+
     // Receive results
     for result := range stage2 {
         fmt.Println(result) // Output: 2, 8, 18, 32, 50
@@ -101,7 +101,7 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/parallel/pipeline"
+    "github.com/leoheung/go-patterns/parallel/pipeline"
 )
 
 func main() {
@@ -109,20 +109,20 @@ func main() {
     input := make(chan int)
     quit := make(chan struct{})
     defer close(quit)
-    
+
     // FanOut: Distribute data to 3 workers
     workers := pipeline.FanOut(quit, input, 3)
-    
+
     // Process data in parallel
     process := func(x int) int { return x * 2 }
     var processed []chan int
     for _, worker := range workers {
         processed = append(processed, pipeline.AddOnPipe(quit, process, worker))
     }
-    
+
     // FanIn: Merge results from all workers
     output := pipeline.FanIn(quit, processed...)
-    
+
     // Send data
     go func() {
         for i := 1; i <= 5; i++ {
@@ -130,7 +130,7 @@ func main() {
         }
         close(input)
     }()
-    
+
     // Receive results
     for result := range output {
         fmt.Println(result)

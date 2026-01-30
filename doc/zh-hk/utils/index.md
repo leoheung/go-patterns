@@ -9,7 +9,7 @@
 檢查是否處於開發環境並相應地記錄消息。
 
 ```go
-import "github.com/leoxiang66/go-patterns/utils"
+import "github.com/leoheung/go-patterns/utils"
 
 // 檢查是否處於開發環境
 isDev := utils.IsDev() // 若 env=dev 則返回 true
@@ -90,7 +90,7 @@ clamped := utils.Clamp(10, 0, 5) // 5
 package main
 
 import (
-    "github.com/leoxiang66/go-patterns/utils"
+    "github.com/leoheung/go-patterns/utils"
     "time"
 )
 

@@ -5,7 +5,7 @@
 ## 安裝
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/rwlock"
+import "github.com/leoheung/go-patterns/parallel/rwlock"
 ```
 
 ## API 參考
@@ -42,7 +42,7 @@ import (
     "fmt"
     "sync"
     "time"
-    "github.com/leoxiang66/go-patterns/parallel/rwlock"
+    "github.com/leoheung/go-patterns/parallel/rwlock"
 )
 
 func main() {

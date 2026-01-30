@@ -5,7 +5,7 @@
 ## 安裝
 
 ```go
-import "github.com/leoxiang66/go-patterns/container/msgQueue"
+import "github.com/leoheung/go-patterns/container/msgQueue"
 ```
 
 ## API 參考
@@ -60,7 +60,7 @@ import (
     "context"
     "fmt"
     "time"
-    "github.com/leoxiang66/go-patterns/container/msgQueue"
+    "github.com/leoheung/go-patterns/container/msgQueue"
 )
 
 func main() {

@@ -5,7 +5,7 @@ A static limiter for controlling the rate of operations.
 ## Installation
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/limiter"
+import "github.com/leoheung/go-patterns/parallel/limiter"
 ```
 
 ## API Reference
@@ -33,7 +33,7 @@ package main
 import (
     "fmt"
     "time"
-    "github.com/leoxiang66/go-patterns/parallel/limiter"
+    "github.com/leoheung/go-patterns/parallel/limiter"
 )
 
 func main() {
@@ -42,13 +42,13 @@ func main() {
 
     for i := 0; i < 5; i++ {
         start := time.Now()
-        
+
         // Wait for token
         lim.GrantNextToken()
-        
+
         // Perform operation
-        fmt.Printf("Operation %d at %v (elapsed: %v)\n", 
-            i+1, time.Now().Format("15:04:05.000"), 
+        fmt.Printf("Operation %d at %v (elapsed: %v)\n",
+            i+1, time.Now().Format("15:04:05.000"),
             time.Since(start))
     }
 }

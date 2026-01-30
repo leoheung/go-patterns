@@ -17,7 +17,7 @@ export default defineConfig({
         nav: nav('en'),
         sidebar: sidebar('en'),
         editLink: {
-          pattern: 'https://github.com/leoxiang66/go-patterns/edit/main/doc/:path',
+          pattern: 'https://github.com/leoheung/go-patterns/edit/main/doc/:path',
           text: 'Edit this page on GitHub'
         }
       }
@@ -32,7 +32,7 @@ export default defineConfig({
         nav: nav('zh-hk'),
         sidebar: sidebar('zh-hk'),
         editLink: {
-          pattern: 'https://github.com/leoxiang66/go-patterns/edit/main/doc/:path',
+          pattern: 'https://github.com/leoheung/go-patterns/edit/main/doc/:path',
           text: '在 GitHub 上編輯此頁面'
         }
       }
@@ -41,7 +41,7 @@ export default defineConfig({
 
   themeConfig: {
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/leoxiang66/go-patterns' }
+      { icon: 'github', link: 'https://github.com/leoheung/go-patterns' }
     ],
 
     search: {

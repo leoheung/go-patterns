@@ -5,7 +5,7 @@
 ## 安裝
 
 ```go
-import "github.com/leoxiang66/go-patterns/container/pq"
+import "github.com/leoheung/go-patterns/container/pq"
 ```
 
 ## API 參考
@@ -53,7 +53,7 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/container/pq"
+    "github.com/leoheung/go-patterns/container/pq"
 )
 
 type Task struct {

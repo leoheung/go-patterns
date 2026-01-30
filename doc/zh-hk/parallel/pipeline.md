@@ -5,7 +5,7 @@
 ## 安裝
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/pipeline"
+import "github.com/leoheung/go-patterns/parallel/pipeline"
 ```
 
 ## API 參考
@@ -63,7 +63,7 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/parallel/pipeline"
+    "github.com/leoheung/go-patterns/parallel/pipeline"
 )
 
 func main() {
@@ -71,14 +71,14 @@ func main() {
     input := make(chan int)
     quit := make(chan struct{})
     defer close(quit)
-    
+
     // 建立 Pipeline: Square -> Double
     square := func(x int) int { return x * x }
     double := func(x int) int { return x * 2 }
-    
+
     stage1 := pipeline.AddOnPipe(quit, square, input)
     stage2 := pipeline.AddOnPipe(quit, double, stage1)
-    
+
     // 發送數據
     go func() {
         for i := 1; i <= 5; i++ {
@@ -86,7 +86,7 @@ func main() {
         }
         close(input)
     }()
-    
+
     // 接收結果
     for result := range stage2 {
         fmt.Println(result) // 輸出: 2, 8, 18, 32, 50
@@ -101,7 +101,7 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/parallel/pipeline"
+    "github.com/leoheung/go-patterns/parallel/pipeline"
 )
 
 func main() {
@@ -109,20 +109,20 @@ func main() {
     input := make(chan int)
     quit := make(chan struct{})
     defer close(quit)
-    
+
     // FanOut: 將數據分發給 3 個 Worker
     workers := pipeline.FanOut(quit, input, 3)
-    
+
     // 並行處理數據
     process := func(x int) int { return x * 2 }
     var processed []chan int
     for _, worker := range workers {
         processed = append(processed, pipeline.AddOnPipe(quit, process, worker))
     }
-    
+
     // FanIn: 合併所有 Worker 的結果
     output := pipeline.FanIn(quit, processed...)
-    
+
     // 發送數據
     go func() {
         for i := 1; i <= 5; i++ {
@@ -130,7 +130,7 @@ func main() {
         }
         close(input)
     }()
-    
+
     // 接收結果
     for result := range output {
         fmt.Println(result)

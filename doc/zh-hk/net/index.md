@@ -9,7 +9,7 @@
 用於 Chi 路由器的工具。
 
 ```go
-import "github.com/leoxiang66/go-patterns/net"
+import "github.com/leoheung/go-patterns/net"
 
 // 以中間件包裝處理器
 handler := net.WrapHandler(myHandler)
@@ -57,7 +57,7 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/net"
+    "github.com/leoheung/go-patterns/net"
 )
 
 func main() {

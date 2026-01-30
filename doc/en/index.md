@@ -11,7 +11,7 @@ hero:
       link: /en/guide/getting-started
     - theme: alt
       text: View on GitHub
-      link: https://github.com/leoxiang66/go-patterns
+      link: https://github.com/leoheung/go-patterns
 
 features:
   - icon: 📦

@@ -9,7 +9,7 @@
 ## Installation
 
 ```bash
-go get github.com/leoxiang66/go-patterns
+go get github.com/leoheung/go-patterns
 ```
 
 ## Quick Start
@@ -21,21 +21,21 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/container/list"
+    "github.com/leoheung/go-patterns/container/list"
 )
 
 func main() {
     // Create a new list
     l := list.New[int]()
-    
+
     // Add elements
     l.Append(1, 2, 3)
     l.Push(4)
-    
+
     // Get element
     elem := l.Get(0)
     fmt.Println(elem) // Output: 1
-    
+
     // Iterate
     for i := 0; i < l.Len(); i++ {
         fmt.Println(l.Get(i))
@@ -50,21 +50,21 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/parallel/pipeline"
+    "github.com/leoheung/go-patterns/parallel/pipeline"
 )
 
 func main() {
     input := make(chan int)
     quit := make(chan struct{})
     defer close(quit)
-    
+
     // Create pipeline stages
     square := func(x int) int { return x * x }
     double := func(x int) int { return x * 2 }
-    
+
     stage1 := pipeline.AddOnPipe(quit, square, input)
     stage2 := pipeline.AddOnPipe(quit, double, stage1)
-    
+
     // Send data
     go func() {
         for i := 1; i <= 5; i++ {
@@ -72,7 +72,7 @@ func main() {
         }
         close(input)
     }()
-    
+
     // Receive results
     for result := range stage2 {
         fmt.Println(result)
@@ -87,17 +87,17 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/parallel/semaphore"
+    "github.com/leoheung/go-patterns/parallel/semaphore"
 )
 
 func main() {
     // Create a semaphore with capacity 3
     sem := semaphore.NewSemaphore(3)
-    
+
     // Acquire and release
     sem.Acquire()
     defer sem.Release()
-    
+
     // Perform operation
     fmt.Println("Performing operation...")
 }

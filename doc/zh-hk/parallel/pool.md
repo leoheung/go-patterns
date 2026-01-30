@@ -5,7 +5,7 @@
 ## 安裝
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/pool"
+import "github.com/leoheung/go-patterns/parallel/pool"
 ```
 
 ## API 參考
@@ -42,15 +42,15 @@ import (
     "fmt"
     "sync/atomic"
     "time"
-    "github.com/leoxiang66/go-patterns/parallel/pool"
+    "github.com/leoheung/go-patterns/parallel/pool"
 )
 
 func main() {
     // 建立有 3 個 Worker 的 Pool
     p := pool.NewWorkerPool(3)
-    
+
     var counter int32 = 0
-    
+
     // 提交 10 個任務
     for i := 0; i < 10; i++ {
         taskID := i
@@ -61,13 +61,13 @@ func main() {
             fmt.Printf("任務 %d 完成\n", taskID)
         })
     }
-    
+
     // 等待任務完成
     time.Sleep(1 * time.Second)
-    
+
     // 停止 Pool
     p.Stop()
-    
+
     fmt.Printf("總共完成: %d\n", counter)
 }
 ```

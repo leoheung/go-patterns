@@ -5,7 +5,7 @@ A read-write lock implementation supporting multiple readers or a single writer.
 ## Installation
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/rwlock"
+import "github.com/leoheung/go-patterns/parallel/rwlock"
 ```
 
 ## API Reference
@@ -42,7 +42,7 @@ import (
     "fmt"
     "sync"
     "time"
-    "github.com/leoxiang66/go-patterns/parallel/rwlock"
+    "github.com/leoheung/go-patterns/parallel/rwlock"
 )
 
 func main() {

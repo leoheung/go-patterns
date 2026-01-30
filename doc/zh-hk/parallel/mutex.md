@@ -5,7 +5,7 @@
 ## 安裝
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/mutex"
+import "github.com/leoheung/go-patterns/parallel/mutex"
 ```
 
 ## API 參考
@@ -35,7 +35,7 @@ package main
 import (
     "fmt"
     "sync"
-    "github.com/leoxiang66/go-patterns/parallel/mutex"
+    "github.com/leoheung/go-patterns/parallel/mutex"
 )
 
 func main() {
@@ -48,11 +48,11 @@ func main() {
         wg.Add(1)
         go func() {
             defer wg.Done()
-            
+
             // 存取共享資源前鎖定
             m.Lock()
             defer m.Unlock()
-            
+
             // 臨界區
             counter++
             fmt.Printf("計數器: %d\n", counter)

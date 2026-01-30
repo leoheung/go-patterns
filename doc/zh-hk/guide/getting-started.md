@@ -7,7 +7,7 @@
 ## 安裝
 
 ```bash
-go get github.com/leoxiang66/go-patterns
+go get github.com/leoheung/go-patterns
 ```
 
 ## 快速上手
@@ -19,21 +19,21 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/container/list"
+    "github.com/leoheung/go-patterns/container/list"
 )
 
 func main() {
     // 建立新列表
     l := list.New[int]()
-    
+
     // 新增元素
     l.Append(1, 2, 3)
     l.Push(4)
-    
+
     // 取得元素
     elem := l.Get(0)
     fmt.Println(elem) // 輸出: 1
-    
+
     // 迭代
     for i := 0; i < l.Len(); i++ {
         fmt.Println(l.Get(i))
@@ -48,21 +48,21 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/parallel/pipeline"
+    "github.com/leoheung/go-patterns/parallel/pipeline"
 )
 
 func main() {
     input := make(chan int)
     quit := make(chan struct{})
     defer close(quit)
-    
+
     // 建立 Pipeline 階段
     square := func(x int) int { return x * x }
     double := func(x int) int { return x * 2 }
-    
+
     stage1 := pipeline.AddOnPipe(quit, square, input)
     stage2 := pipeline.AddOnPipe(quit, double, stage1)
-    
+
     // 發送數據
     go func() {
         for i := 1; i <= 5; i++ {
@@ -70,7 +70,7 @@ func main() {
         }
         close(input)
     }()
-    
+
     // 接收結果
     for result := range stage2 {
         fmt.Println(result)
@@ -85,17 +85,17 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/parallel/semaphore"
+    "github.com/leoheung/go-patterns/parallel/semaphore"
 )
 
 func main() {
     // 建立容量為 3 的 Semaphore
     sem := semaphore.NewSemaphore(3)
-    
+
     // 取得及釋放
     sem.Acquire()
     defer sem.Release()
-    
+
     // 執行操作
     fmt.Println("執行操作中...")
 }

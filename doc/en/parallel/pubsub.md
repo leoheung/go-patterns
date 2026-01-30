@@ -5,7 +5,7 @@ Publish-Subscribe pattern implementation.
 ## Installation
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/pubsub"
+import "github.com/leoheung/go-patterns/parallel/pubsub"
 ```
 
 ## API Reference
@@ -46,12 +46,12 @@ package main
 import (
     "fmt"
     "time"
-    "github.com/leoxiang66/go-patterns/parallel/pubsub"
+    "github.com/leoheung/go-patterns/parallel/pubsub"
 )
 
 func main() {
     ps := pubsub.NewPubSub()
-    
+
     // Subscriber 1
     ch1 := ps.Subscribe("news")
     go func() {
@@ -59,7 +59,7 @@ func main() {
             fmt.Printf("Subscriber 1 received: %v\n", msg)
         }
     }()
-    
+
     // Subscriber 2
     ch2 := ps.Subscribe("news")
     go func() {
@@ -67,12 +67,12 @@ func main() {
             fmt.Printf("Subscriber 2 received: %v\n", msg)
         }
     }()
-    
+
     // Publish messages
     time.Sleep(100 * time.Millisecond)
     ps.Publish("news", "Breaking: Go 1.22 released!")
     ps.Publish("news", "Breaking: New patterns added!")
-    
+
     time.Sleep(100 * time.Millisecond)
 }
 ```

@@ -5,7 +5,7 @@ A semaphore implementation for limiting concurrent access to resources.
 ## Installation
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/semaphore"
+import "github.com/leoheung/go-patterns/parallel/semaphore"
 ```
 
 ## API Reference
@@ -34,30 +34,30 @@ import (
     "fmt"
     "sync"
     "time"
-    "github.com/leoxiang66/go-patterns/parallel/semaphore"
+    "github.com/leoheung/go-patterns/parallel/semaphore"
 )
 
 func main() {
     // Create a semaphore with 3 permits
     sem := semaphore.NewSemaphore(3)
     var wg sync.WaitGroup
-    
+
     // Launch 10 goroutines
     for i := 0; i < 10; i++ {
         wg.Add(1)
         go func(id int) {
             defer wg.Done()
-            
+
             // Acquire permit
             sem.Acquire()
             defer sem.Release()
-            
+
             fmt.Printf("Goroutine %d: Working...\n", id)
             time.Sleep(200 * time.Millisecond)
             fmt.Printf("Goroutine %d: Done\n", id)
         }(i)
     }
-    
+
     wg.Wait()
 }
 ```
@@ -78,7 +78,7 @@ Goroutine 3: Working...
 Alternative implementation using condition variables:
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/semaphore"
+import "github.com/leoheung/go-patterns/parallel/semaphore"
 
 // Create semaphore with condition variable
 sem := semaphore.NewSemaphoreByCond(5)

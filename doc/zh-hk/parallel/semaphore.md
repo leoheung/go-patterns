@@ -5,7 +5,7 @@
 ## 安裝
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/semaphore"
+import "github.com/leoheung/go-patterns/parallel/semaphore"
 ```
 
 ## API 參考
@@ -34,7 +34,7 @@ import (
     "fmt"
     "sync"
     "time"
-    "github.com/leoxiang66/go-patterns/parallel/semaphore"
+    "github.com/leoheung/go-patterns/parallel/semaphore"
 )
 
 func main() {
@@ -78,7 +78,7 @@ Goroutine 3: 執行中...
 使用條件變數的替代實現：
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/semaphore"
+import "github.com/leoheung/go-patterns/parallel/semaphore"
 
 // 使用條件變數建立信號量
 sem := semaphore.NewSemaphoreByCond(5)

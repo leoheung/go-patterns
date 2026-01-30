@@ -9,7 +9,7 @@ The `net` package provides network utilities for HTTP handling, file downloads, 
 Utilities for working with the Chi router.
 
 ```go
-import "github.com/leoxiang66/go-patterns/net"
+import "github.com/leoheung/go-patterns/net"
 
 // Wrap handler with middleware
 handler := net.WrapHandler(myHandler)
@@ -55,7 +55,7 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/net"
+    "github.com/leoheung/go-patterns/net"
 )
 
 func main() {
@@ -63,14 +63,14 @@ func main() {
     if net.IsReachable("https://google.com") {
         fmt.Println("Google is reachable")
     }
-    
+
     // Get a free port
     port, err := net.GetFreePort()
     if err != nil {
         panic(err)
     }
     fmt.Printf("Free port available: %d\n", port)
-    
+
     // Download file with progress
     err = net.DownloadFile(
         "https://example.com/file.zip",

@@ -5,7 +5,7 @@
 ## 安裝
 
 ```go
-import "github.com/leoxiang66/go-patterns/container/cache"
+import "github.com/leoheung/go-patterns/container/cache"
 ```
 
 ## API 參考
@@ -67,7 +67,7 @@ package main
 import (
     "fmt"
     "time"
-    "github.com/leoxiang66/go-patterns/container/cache"
+    "github.com/leoheung/go-patterns/container/cache"
 )
 
 func main() {

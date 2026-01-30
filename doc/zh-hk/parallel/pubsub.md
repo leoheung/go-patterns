@@ -5,7 +5,7 @@
 ## 安裝
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/pubsub"
+import "github.com/leoheung/go-patterns/parallel/pubsub"
 ```
 
 ## API 參考
@@ -46,7 +46,7 @@ package main
 import (
     "fmt"
     "time"
-    "github.com/leoxiang66/go-patterns/parallel/pubsub"
+    "github.com/leoheung/go-patterns/parallel/pubsub"
 )
 
 func main() {

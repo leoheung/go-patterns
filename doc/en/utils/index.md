@@ -9,7 +9,7 @@ The `utils` package provides utility functions for common operations.
 Check if in development environment and log messages accordingly.
 
 ```go
-import "github.com/leoxiang66/go-patterns/utils"
+import "github.com/leoheung/go-patterns/utils"
 
 // Check if in development environment
 isDev := utils.IsDev() // Returns true if env=dev
@@ -90,14 +90,14 @@ clamped := utils.Clamp(10, 0, 5) // 5
 package main
 
 import (
-    "github.com/leoxiang66/go-patterns/utils"
+    "github.com/leoheung/go-patterns/utils"
     "time"
 )
 
 func main() {
     // Set environment to development
     // os.Setenv("env", "dev")
-    
+
     // Retry a potentially failing operation
     utils.RetryWork(func() error {
         utils.LogMessage("Attempting operation...")

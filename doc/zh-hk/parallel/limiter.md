@@ -5,7 +5,7 @@
 ## 安裝
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/limiter"
+import "github.com/leoheung/go-patterns/parallel/limiter"
 ```
 
 ## API 參考
@@ -33,7 +33,7 @@ package main
 import (
     "fmt"
     "time"
-    "github.com/leoxiang66/go-patterns/parallel/limiter"
+    "github.com/leoheung/go-patterns/parallel/limiter"
 )
 
 func main() {
@@ -42,13 +42,13 @@ func main() {
 
     for i := 0; i < 5; i++ {
         start := time.Now()
-        
+
         // 等待令牌
         lim.GrantNextToken()
-        
+
         // 執行操作
-        fmt.Printf("操作 %d 於 %v (經過: %v)\n", 
-            i+1, time.Now().Format("15:04:05.000"), 
+        fmt.Printf("操作 %d 於 %v (經過: %v)\n",
+            i+1, time.Now().Format("15:04:05.000"),
             time.Since(start))
     }
 }

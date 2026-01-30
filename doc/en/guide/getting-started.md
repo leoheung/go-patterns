@@ -7,7 +7,7 @@
 ## Installation
 
 ```bash
-go get github.com/leoxiang66/go-patterns
+go get github.com/leoheung/go-patterns
 ```
 
 ## Quick Start
@@ -19,7 +19,7 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/container/list"
+    "github.com/leoheung/go-patterns/container/list"
 )
 
 func main() {
@@ -48,7 +48,7 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/parallel/pipeline"
+    "github.com/leoheung/go-patterns/parallel/pipeline"
 )
 
 func main() {
@@ -85,7 +85,7 @@ package main
 
 import (
     "fmt"
-    "github.com/leoxiang66/go-patterns/parallel/semaphore"
+    "github.com/leoheung/go-patterns/parallel/semaphore"
 )
 
 func main() {

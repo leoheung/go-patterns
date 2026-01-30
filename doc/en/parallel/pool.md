@@ -5,7 +5,7 @@ Worker pool pattern for managing concurrent tasks.
 ## Installation
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/pool"
+import "github.com/leoheung/go-patterns/parallel/pool"
 ```
 
 ## API Reference
@@ -42,15 +42,15 @@ import (
     "fmt"
     "sync/atomic"
     "time"
-    "github.com/leoxiang66/go-patterns/parallel/pool"
+    "github.com/leoheung/go-patterns/parallel/pool"
 )
 
 func main() {
     // Create a pool with 3 workers
     p := pool.NewWorkerPool(3)
-    
+
     var counter int32 = 0
-    
+
     // Submit 10 tasks
     for i := 0; i < 10; i++ {
         taskID := i
@@ -61,13 +61,13 @@ func main() {
             fmt.Printf("Task %d completed\n", taskID)
         })
     }
-    
+
     // Wait for tasks to complete
     time.Sleep(1 * time.Second)
-    
+
     // Stop the pool
     p.Stop()
-    
+
     fmt.Printf("Total completed: %d\n", counter)
 }
 ```

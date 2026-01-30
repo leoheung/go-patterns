@@ -5,7 +5,7 @@ A simple mutual exclusion lock implementation.
 ## Installation
 
 ```go
-import "github.com/leoxiang66/go-patterns/parallel/mutex"
+import "github.com/leoheung/go-patterns/parallel/mutex"
 ```
 
 ## API Reference
@@ -35,7 +35,7 @@ package main
 import (
     "fmt"
     "sync"
-    "github.com/leoxiang66/go-patterns/parallel/mutex"
+    "github.com/leoheung/go-patterns/parallel/mutex"
 )
 
 func main() {
@@ -48,11 +48,11 @@ func main() {
         wg.Add(1)
         go func() {
             defer wg.Done()
-            
+
             // Lock before accessing shared resource
             m.Lock()
             defer m.Unlock()
-            
+
             // Critical section
             counter++
             fmt.Printf("Counter: %d\n", counter)

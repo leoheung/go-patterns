@@ -11,7 +11,7 @@ hero:
       link: /zh-hk/guide/getting-started
     - theme: alt
       text: 在 GitHub 上查看
-      link: https://github.com/leoxiang66/go-patterns
+      link: https://github.com/leoheung/go-patterns
 
 features:
   - icon: 📦

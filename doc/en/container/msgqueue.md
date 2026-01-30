@@ -5,7 +5,7 @@ A channel-based message queue implementation with basic queue operations.
 ## Installation
 
 ```go
-import "github.com/leoxiang66/go-patterns/container/msgQueue"
+import "github.com/leoheung/go-patterns/container/msgQueue"
 ```
 
 ## API Reference
@@ -60,7 +60,7 @@ import (
     "context"
     "fmt"
     "time"
-    "github.com/leoxiang66/go-patterns/container/msgQueue"
+    "github.com/leoheung/go-patterns/container/msgQueue"
 )
 
 func main() {
