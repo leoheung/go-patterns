@@ -10,32 +10,41 @@ import "github.com/leoheung/go-patterns/parallel/pubsub"
 
 ## API Reference
 
-### Create a PubSub
+### Initialize PubSub System
 
 ```go
-// Create a new PubSub instance
-ps := pubsub.NewPubSub()
+// Initialize the PubSub system
+pubsub.InitPubSubSystem()
+
+// Shutdown the PubSub system when done
+// pubsub.Shutdown()
 ```
 
 ### Subscribe
 
 ```go
-// Subscribe to a topic
-ch := ps.Subscribe("topic-name")
+// Subscribe to a topic with buffer size
+id, ch, err := pubsub.Subscribe("topic-name", 10)
+if err != nil {
+    // Handle error
+}
 ```
 
 ### Publish
 
 ```go
 // Publish a message to a topic
-ps.Publish("topic-name", message)
+err := pubsub.Publish("topic-name", message)
+if err != nil {
+    // Handle error
+}
 ```
 
 ### Unsubscribe
 
 ```go
 // Unsubscribe from a topic
-ps.Unsubscribe("topic-name", ch)
+pubsub.Unsubscribe("topic-name", id)
 ```
 
 ## Complete Example
@@ -50,10 +59,16 @@ import (
 )
 
 func main() {
-    ps := pubsub.NewPubSub()
+    // Initialize PubSub system
+    pubsub.InitPubSubSystem()
+    defer pubsub.Shutdown()
 
     // Subscriber 1
-    ch1 := ps.Subscribe("news")
+    id1, ch1, err := pubsub.Subscribe("news", 10)
+    if err != nil {
+        fmt.Printf("Error subscribing: %v\n", err)
+        return
+    }
     go func() {
         for msg := range ch1 {
             fmt.Printf("Subscriber 1 received: %v\n", msg)
@@ -61,7 +76,11 @@ func main() {
     }()
 
     // Subscriber 2
-    ch2 := ps.Subscribe("news")
+    id2, ch2, err := pubsub.Subscribe("news", 10)
+    if err != nil {
+        fmt.Printf("Error subscribing: %v\n", err)
+        return
+    }
     go func() {
         for msg := range ch2 {
             fmt.Printf("Subscriber 2 received: %v\n", msg)
@@ -70,10 +89,22 @@ func main() {
 
     // Publish messages
     time.Sleep(100 * time.Millisecond)
-    ps.Publish("news", "Breaking: Go 1.22 released!")
-    ps.Publish("news", "Breaking: New patterns added!")
+
+    err = pubsub.Publish("news", "Breaking: Go 1.22 released!")
+    if err != nil {
+        fmt.Printf("Error publishing: %v\n", err)
+    }
+
+    err = pubsub.Publish("news", "Breaking: New patterns added!")
+    if err != nil {
+        fmt.Printf("Error publishing: %v\n", err)
+    }
 
     time.Sleep(100 * time.Millisecond)
+
+    // Unsubscribe
+    pubsub.Unsubscribe("news", id1)
+    pubsub.Unsubscribe("news", id2)
 }
 ```
 
@@ -91,3 +122,6 @@ Subscriber 2 received: Breaking: New patterns added!
 - **Multiple subscribers**: One-to-many message distribution
 - **Topic-based**: Organize messages by topic
 - **Async delivery**: Non-blocking publish
+- **System initialization**: Requires explicit initialization and shutdown
+- **Buffer support**: Configurable buffer size for subscribers
+- **Error handling**: Returns errors for invalid operations

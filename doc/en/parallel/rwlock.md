@@ -29,8 +29,8 @@ defer rw.RUnlock()
 
 ```go
 // Acquire write lock
-rw.Lock()
-defer rw.Unlock()
+rw.WLock()
+defer rw.WUnlock()
 ```
 
 ## Complete Example
@@ -56,8 +56,8 @@ func main() {
         go func(id int) {
             defer wg.Done()
 
-            rw.Lock()
-            defer rw.Unlock()
+            rw.WLock()
+            defer rw.WUnlock()
 
             key := fmt.Sprintf("key-%d", id)
             data[key] = fmt.Sprintf("value-%d", id)

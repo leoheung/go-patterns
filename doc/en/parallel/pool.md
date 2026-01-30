@@ -26,11 +26,13 @@ p.Submit(func() {
 })
 ```
 
-### Stop the Pool
+### Try Submit Tasks
 
 ```go
-// Stop the pool gracefully
-p.Stop()
+// Try to submit a task to the pool (non-blocking)
+success := p.TrySubmit(func() {
+    // Task logic
+})
 ```
 
 ## Complete Example
@@ -65,9 +67,6 @@ func main() {
     // Wait for tasks to complete
     time.Sleep(1 * time.Second)
 
-    // Stop the pool
-    p.Stop()
-
     fmt.Printf("Total completed: %d\n", counter)
 }
 ```
@@ -89,5 +88,6 @@ Total completed: 10
 ## Features
 
 - **Fixed-size pool**: Controls concurrency level
-- **Task queue**: Buffered channel for pending tasks
-- **Graceful shutdown**: Waits for running tasks to complete
+- **Task submission**: Submit tasks for execution
+- **Non-blocking submit**: TrySubmit for non-blocking task submission
+- **Panic recovery**: Automatically recovers from panics in tasks
