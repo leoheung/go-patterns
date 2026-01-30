@@ -44,9 +44,12 @@ l.Set(0, 10)
 if elem, ok := l.At(0); ok {
     // Element exists
 }
+
+// Return a new List with element modified at index
+l2 := l.With(0, 100)
 ```
 
-## Adding Elements
+## Adding and Removing Elements
 
 ```go
 // Append elements to the end
@@ -58,11 +61,10 @@ l.Extend([]int{7, 8})
 
 // Add elements to the beginning
 l.Unshift(0, -1)
-```
 
-## Removing Elements
+// Insert at index (supports negative index)
+l.Insert(1, 99)
 
-```go
 // Remove and return the first element
 if elem, ok := l.Shift(); ok {
     // Handle element
@@ -85,6 +87,19 @@ if elem, ok := l.RemoveAt(2); ok {
 l.Clear()
 ```
 
+## Advanced Mutations (JS-like)
+
+```go
+// Splice: Remove/Replace elements
+removed := l.Splice(start, deleteCount, items...)
+
+// CopyWithin: Copy a range of elements within the list
+l.CopyWithin(target, start, end)
+
+// Fill: Fill a range with a value
+l.Fill(value, start, end)
+```
+
 ## Search and Query
 
 ```go
@@ -99,22 +114,41 @@ lastIndex := l.LastIndexOf(5, func(a, b int) bool { return a == b })
 count := l.Count(5, func(a, b int) bool { return a == b })
 
 // Find elements
-if elem, ok := l.Find(func(v, i int) bool { return v > 10 }); ok {
-    // Handle element
-}
+if elem, ok := l.Find(func(v, i int) bool { return v > 10 }); ok { /* ... */ }
+index := l.FindIndex(func(v, i int) bool { return v > 10 })
+
+// Find from last
+if elem, ok := l.FindLast(func(v, i int) bool { return v > 10 }); ok { /* ... */ }
+lastIdx := l.FindLastIndex(func(v, i int) bool { return v > 10 })
 ```
 
-## Transformation and Filtering
+## Transformation and Iteration
 
 ```go
-// Map elements to new list
-newList := list.Map(l, func(v, i int) string { return fmt.Sprintf("%d", v) })
+// Read-only iteration
+l.ForEach(func(v int, i int) { fmt.Println(v) })
+
+// Concurrent iteration
+l.ForEachAsync(ctx, maxGoroutines, func(v int, i int) { /* ... */ })
+
+// Map elements to new list (Generic package function)
+newList := list.Map(l, func(v int, i int) string { return fmt.Sprintf("%d", v) })
+
+// Map to any (Method)
+anyList := l.Map(func(v int, i int) any { return v * 2 })
+
+// Concurrent Map
+res, err := list.MapAsync(ctx, l, 4, func(v int, i int) int { return v * v })
 
 // Filter elements
-filtered := l.Filter(func(v, i int) bool { return v > 5 })
+filtered := l.Filter(func(v int, i int) bool { return v > 5 })
 
-// Reduce elements
-result := list.Reduce(l, 0, func(acc, v, i int) int { return acc + v })
+// Reduce elements (Generic package function)
+result := list.Reduce(l, 0, func(acc int, v int, i int) int { return acc + v })
+
+// Every / Some
+allMatch := l.Every(func(v int, i int) bool { return v > 0 })
+anyMatch := l.Some(func(v int, i int) bool { return v > 100 })
 ```
 
 ## Sorting and Reversing
@@ -131,6 +165,9 @@ l.Reverse()
 
 // Get reversed copy
 lReversed := l.ToReversed()
+
+// Join elements to string
+str := l.Join(", ", func(v int) string { return fmt.Sprint(v) })
 ```
 
 ## Complete Example
@@ -162,5 +199,15 @@ func main() {
     // Reduce to sum
     sum := list.Reduce(squares, 0, func(acc, v, i int) int { return acc + v })
     fmt.Println("Sum:", sum)
+    
+    // Join
+    fmt.Println("Joined:", squares.Join(" | ", func(v int) string { return fmt.Sprint(v) }))
 }
 ```
+
+## Features
+
+- **Generics**: Type-safe operations for any data type.
+- **Python/JS Semantics**: Familiar methods like `Append`, `Pop`, `Splice`, `Map`, `Filter`.
+- **Negative Indexing**: Supports `l.Get(-1)` for last element.
+- **Concurrency Support**: `ForEachAsync` and `MapAsync` for parallel processing.

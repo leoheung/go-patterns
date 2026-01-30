@@ -1,51 +1,57 @@
 # Net
 
-The `net` package provides network utilities for HTTP handling, file downloads, and common networking tasks.
+The `net` package provides utilities for HTTP response handling, concurrent file downloads, and pointer helper functions.
 
-## Modules
-
-### Chi Router Utils
-
-Utilities for working with the Chi router.
+## Installation
 
 ```go
 import "github.com/leoheung/go-patterns/net"
-
-// Wrap handler with middleware
-handler := net.WrapHandler(myHandler)
-
-// Common middleware setup
-r := chi.NewRouter()
-net.SetupCommonMiddleware(r)
 ```
 
-### Download
+## API Reference
 
-File download utilities with progress tracking.
+### Concurrent Download
+
+Download files using multiple goroutines with progress tracking.
 
 ```go
-// Download file with progress
-err := net.DownloadFile("https://example.com/file.zip", "/path/to/save", func(progress float64) {
-    fmt.Printf("Download progress: %.2f%%\n", progress*100)
-})
-
-// Simple download
-err := net.DownloadFileSimple("https://example.com/file.zip", "/path/to/save")
+// Concurrent download with 4 workers
+err := net.DownloadFileByConcurrent("https://example.com/file.zip", "./downloads/", 4)
 ```
 
-### Common Network Utils
+### HTTP Response Helpers
 
-Common networking helper functions.
+Standardized JSON and CSV response helpers for web services.
 
 ```go
-// Check if URL is reachable
-reachable := net.IsReachable("https://example.com")
+// Return a standardized JSON success response
+net.ReturnJsonResponse(w, http.StatusOK, map[string]string{"message": "success"})
 
-// Get free port
-port, err := net.GetFreePort()
+// Return a standardized JSON error response
+net.ReturnErrorResponse(w, http.StatusBadRequest, "invalid input")
 
-// Parse URL
-parsed, err := net.ParseURL("https://example.com/path?query=value")
+// Return a CSV file response
+headers := []string{"ID", "Name"}
+rows := [][]string{{"1", "Alice"}, {"2", "Bob"}}
+net.ReturnCSVResponse(w, "users.csv", headers, rows)
+```
+
+### Chi Router Utilities
+
+```go
+// Print all registered routes in a Chi mux
+net.PrintCHIRoutes(r)
+```
+
+### Pointer Helpers
+
+Commonly used to create pointers for primitive types (useful for database models).
+
+```go
+s := net.PtrString("hello")
+i := net.PtrInt(100)
+b := net.PtrBool(true)
+t := net.PtrTime(time.Now())
 ```
 
 ## Complete Example
@@ -54,40 +60,36 @@ parsed, err := net.ParseURL("https://example.com/path?query=value")
 package main
 
 import (
-    "fmt"
+    "net/http"
+    "github.com/go-chi/chi/v5"
     "github.com/leoheung/go-patterns/net"
 )
 
 func main() {
-    // Check if website is reachable
-    if net.IsReachable("https://google.com") {
-        fmt.Println("Google is reachable")
-    }
+    r := chi.NewRouter()
 
-    // Get a free port
-    port, err := net.GetFreePort()
-    if err != nil {
-        panic(err)
-    }
-    fmt.Printf("Free port available: %d\n", port)
+    r.Get("/api/data", func(w http.ResponseWriter, r *http.Request) {
+        data := struct {
+            ID   int    `json:"id"`
+            Name string `json:"name"`
+        }{ID: 1, Name: "Pattern"}
+        
+        net.ReturnJsonResponse(w, http.StatusOK, data)
+    })
 
-    // Download file with progress
-    err = net.DownloadFile(
-        "https://example.com/file.zip",
-        "/tmp/file.zip",
-        func(progress float64) {
-            fmt.Printf("Progress: %.0f%%\n", progress*100)
-        },
-    )
-    if err != nil {
-        fmt.Printf("Download failed: %v\n", err)
-    }
+    // Print routes for debugging
+    net.PrintCHIRoutes(r)
+
+    // Download a file concurrently
+    go net.DownloadFileByConcurrent("https://example.com/large-file.bin", "./tmp/", 8)
+
+    http.ListenAndServe(":8080", r)
 }
 ```
 
 ## Features
 
-- **HTTP utilities**: Common HTTP helper functions
-- **File download**: Download with progress tracking
-- **Chi integration**: Utilities for Chi router
-- **Port management**: Find available ports
+- **Concurrent Download**: Multi-threaded downloading with automatic filename resolution.
+- **Standardized Responses**: Consistent `UniversalResponse` structure for JSON APIs.
+- **Route Debugging**: Easily visualize Chi router structures.
+- **Pointer Utils**: Convenient helpers for handling optional fields in structs.

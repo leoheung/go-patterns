@@ -13,7 +13,7 @@ import "github.com/leoheung/go-patterns/container/cache"
 ### Create a Cache
 
 ```go
-// Create a new cache with default settings
+// Create a new cache
 c, err := cache.NewCache()
 if err != nil {
     // Handle error
@@ -23,7 +23,7 @@ if err != nil {
 ### Add
 
 ```go
-// Add a value with TTL
+// Add a value with a specific TTL
 err := c.Add("key", "value", 5*time.Minute)
 if err != nil {
     // Handle error
@@ -33,7 +33,7 @@ if err != nil {
 ### Get
 
 ```go
-// Get a value
+// Get a value (returns nil if key doesn't exist or is expired)
 value := c.Get("key")
 if value != nil {
     // Use value
@@ -43,14 +43,14 @@ if value != nil {
 ### Delete
 
 ```go
-// Delete a key
+// Delete a specific key
 c.Delete("key")
 ```
 
-### Cache Operations
+### Cache Status
 
 ```go
-// Get cache status as string
+// Get cache status as string (includes item count and scheduler status)
 status := c.String()
 ```
 
@@ -73,7 +73,7 @@ func main() {
         return
     }
 
-    // Add values with TTL
+    // Add values
     err = c.Add("user:1", "Alice", 5*time.Minute)
     if err != nil {
         fmt.Printf("Error adding user:1: %v\n", err)
@@ -93,7 +93,7 @@ func main() {
     // Delete a key
     c.Delete("user:1")
 
-    // Get cache status
+    // Print cache status
     fmt.Println("Cache status:")
     fmt.Println(c.String())
 }
@@ -101,7 +101,7 @@ func main() {
 
 ## Features
 
-- **TTL support**: Automatic expiration of entries
-- **Thread-safe**: Safe for concurrent use
-- **Simple API**: Easy to use Add/Get interface
-- **Memory efficient**: Automatic cleanup of expired entries
+- **TTL Support**: Entries automatically expire and are cleaned up based on the specified duration.
+- **Thread-safe**: Uses RWMutex internally, supporting high-concurrency reads.
+- **Simple API**: Easy-to-use Add/Get interface.
+- **Priority-based Scheduling**: Uses `PriorityScheduledTaskManager` for precise management of expiration tasks.

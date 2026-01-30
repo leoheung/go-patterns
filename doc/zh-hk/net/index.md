@@ -1,53 +1,57 @@
-# 網絡
+# 網絡 (Net)
 
-`net` 套件為 HTTP 處理、檔案下載及常用網絡任務提供網絡工具。
+`net` 套件提供 HTTP 回應處理、並發檔案下載及常用指針輔助函數。
 
-## 模組
-
-### Chi 路由工具
-
-用於 Chi 路由器的工具。
+## 安裝
 
 ```go
 import "github.com/leoheung/go-patterns/net"
-
-// 以中間件包裝處理器
-handler := net.WrapHandler(myHandler)
-
-// 常用中間件設定
-r := chi.NewRouter()
-net.SetupCommonMiddleware(r)
 ```
 
-### 下載
+## API 參考
 
-帶進度追踪的檔案下載工具。
+### 並發下載
+
+使用多個 Goroutine 進行分片下載，並自動追蹤進度。
 
 ```go
-// 帶進度下載檔案
-err := net.DownloadFile("https://example.com/file.zip", 
-    "/path/to/save", 
-    func(progress float64) {
-        fmt.Printf("下載進度: %.2f%%\n", progress*100)
-    })
-
-// 簡單下載
-err := net.DownloadFileSimple("https://example.com/file.zip", "/path/to/save")
+// 使用 4 個併發數下載檔案到指定目錄
+err := net.DownloadFileByConcurrent("https://example.com/file.zip", "./downloads/", 4)
 ```
 
-### 常用網絡工具
+### HTTP 回應工具
 
-常用網絡輔助函數。
+為 Web 服務提供標準化的 JSON 及 CSV 回應格式。
 
 ```go
-// 檢查 URL 是否可達
-reachable := net.IsReachable("https://example.com")
+// 返回標準化的 JSON 成功回應
+net.ReturnJsonResponse(w, http.StatusOK, map[string]string{"message": "success"})
 
-// 取得可用埠
-port, err := net.GetFreePort()
+// 返回標準化的 JSON 錯誤回應
+net.ReturnErrorResponse(w, http.StatusBadRequest, "輸入無效")
 
-// 解析 URL
-parsed, err := net.ParseURL("https://example.com/path?query=value")
+// 返回 CSV 檔案下載回應
+headers := []string{"ID", "姓名"}
+rows := [][]string{{"1", "Alice"}, {"2", "Bob"}}
+net.ReturnCSVResponse(w, "users.csv", headers, rows)
+```
+
+### Chi 路由工具
+
+```go
+// 打印 Chi 路由器中所有已註冊的路由
+net.PrintCHIRoutes(r)
+```
+
+### 指針輔助函數
+
+用於快速建立基本類型的指針（在處理資料庫模型的可選字段時非常有用）。
+
+```go
+s := net.PtrString("hello")
+i := net.PtrInt(100)
+b := net.PtrBool(true)
+t := net.PtrTime(time.Now())
 ```
 
 ## 完整範例
@@ -56,40 +60,36 @@ parsed, err := net.ParseURL("https://example.com/path?query=value")
 package main
 
 import (
-    "fmt"
+    "net/http"
+    "github.com/go-chi/chi/v5"
     "github.com/leoheung/go-patterns/net"
 )
 
 func main() {
-    // 檢查網站是否可達
-    if net.IsReachable("https://google.com") {
-        fmt.Println("Google 可達")
-    }
-    
-    // 取得可用埠
-    port, err := net.GetFreePort()
-    if err != nil {
-        panic(err)
-    }
-    fmt.Printf("可用埠: %d\n", port)
-    
-    // 帶進度下載檔案
-    err = net.DownloadFile(
-        "https://example.com/file.zip",
-        "/tmp/file.zip",
-        func(progress float64) {
-            fmt.Printf("進度: %.0f%%\n", progress*100)
-        },
-    )
-    if err != nil {
-        fmt.Printf("下載失敗: %v\n", err)
-    }
+    r := chi.NewRouter()
+
+    r.Get("/api/data", func(w http.ResponseWriter, r *http.Request) {
+        data := struct {
+            ID   int    `json:"id"`
+            Name string `json:"name"`
+        }{ID: 1, Name: "Pattern"}
+        
+        net.ReturnJsonResponse(w, http.StatusOK, data)
+    })
+
+    // 打印路由結構用於調試
+    net.PrintCHIRoutes(r)
+
+    // 在背景並發下載檔案
+    go net.DownloadFileByConcurrent("https://example.com/large-file.bin", "./tmp/", 8)
+
+    http.ListenAndServe(":8080", r)
 }
 ```
 
 ## 特性
 
-- **HTTP 工具**: 常用 HTTP 輔助函數
-- **檔案下載**: 帶進度追踪的下載
-- **Chi 整合**: 用於 Chi 路由器的工具
-- **埠管理**: 尋找可用埠
+- **並發下載**: 自動計算分片並支持斷點續傳邏輯（視服務端支持而定），自動提取原始文件名。
+- **標準化回應**: 統一的 `UniversalResponse` 結構，包含 `isSuccess` 標誌。
+- **路由可視化**: 方便地查看 Chi 路由器的層級結構與中間件。
+- **類型指針化**: 簡化 Go 中基本類型轉指針的操作。

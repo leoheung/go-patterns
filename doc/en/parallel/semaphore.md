@@ -13,16 +13,24 @@ import "github.com/leoheung/go-patterns/parallel/semaphore"
 ### Create a Semaphore
 
 ```go
-// Create a new semaphore with specified capacity
-sem := semaphore.NewSemaphore(5) // 5 permits
+// Create a new semaphore with specified capacity (channel-based)
+sem := semaphore.NewSemaphore(5)
+
+// Create a new semaphore with specified capacity (condition variable-based)
+semCond := semaphore.NewSemaphoreByCond(5)
 ```
 
 ### Acquire and Release
 
 ```go
-// Acquire a permit
+// Acquire a permit (blocking)
 sem.Acquire()
-defer sem.Release()
+
+// Try to acquire a permit (non-blocking, returns false if no permits available)
+success := sem.TryAcquire()
+
+// Release a permit
+sem.Release()
 ```
 
 ## Complete Example
@@ -62,32 +70,10 @@ func main() {
 }
 ```
 
-## Output
-
-```
-Goroutine 0: Working...
-Goroutine 1: Working...
-Goroutine 2: Working...
-Goroutine 0: Done
-Goroutine 3: Working...
-...
-```
-
-## Semaphore with Condition Variable
-
-Alternative implementation using condition variables:
-
-```go
-import "github.com/leoheung/go-patterns/parallel/semaphore"
-
-// Create semaphore with condition variable
-sem := semaphore.NewSemaphoreByCond(5)
-sem.Acquire()
-sem.Release()
-```
-
 ## Features
 
-- **Resource limiting**: Control concurrent access
-- **Two implementations**: Channel-based and condition variable-based
-- **Simple API**: Acquire and Release
+- **Resource Limiting**: Controls the number of concurrent operations.
+- **Two Implementations**:
+  - `Semaphore`: Channel-based, simple and idiomatic Go.
+  - `SemaphoreByCond`: Mutex and Condition Variable-based, useful for specific synchronization needs.
+- **Non-blocking Support**: `TryAcquire` allows checking for resource availability without waiting.

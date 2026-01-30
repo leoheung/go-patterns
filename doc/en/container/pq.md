@@ -1,6 +1,6 @@
-# Priority Queue
+# Priority Queue & Scheduler
 
-A generic priority queue implementation with customizable priority comparison.
+Generic priority queue implementation and time-based task scheduling manager.
 
 ## Installation
 
@@ -8,9 +8,9 @@ A generic priority queue implementation with customizable priority comparison.
 import "github.com/leoheung/go-patterns/container/pq"
 ```
 
-## API Reference
+## 1. Priority Queue
 
-### Create a Priority Queue
+### Create a Queue
 
 ```go
 // Create a new priority queue with specified capacity and comparison function
@@ -18,32 +18,64 @@ import "github.com/leoheung/go-patterns/container/pq"
 pq, err := pq.NewPriorityQueue[int](10, func(a, b int) bool { return a < b })
 ```
 
-### Enqueue
+### Basic Operations
 
 ```go
 // Enqueue an item
 err := pq.Enqueue(5)
-```
 
-### Dequeue
-
-```go
-// Dequeue the highest priority item
+// Dequeue (get the highest priority item)
 item, err := pq.Dequeue()
-```
 
-### Peek
-
-```go
-// Get the highest priority item without removing it
+// Peek (get the highest priority item without removing it)
 item, err := pq.Peek()
-```
 
-### Queue Length
-
-```go
 // Get current queue length
 length := pq.Len()
+```
+
+## 2. Priority Scheduled Task Manager (PTM)
+
+A scheduler used to execute specific tasks at a designated time.
+
+### Create a Manager
+
+```go
+ptm, err := pq.NewPriorityScheduledTaskManager()
+if err != nil {
+    // Handle error
+}
+```
+
+### Submit a Task
+
+```go
+// Submit a task to be executed in 5 seconds
+cancel, err := ptm.PendNewTask(func() {
+    fmt.Println("Task executing...")
+}, time.Now().Add(5 * time.Second))
+```
+
+### Stop the Manager
+
+```go
+// Wait for all tasks to complete and stop gracefully
+err := ptm.FinishAndQuit()
+```
+
+## 3. Cancelable Object
+
+The `Cancelable` object returned by `PendNewTask` is used to manage task status.
+
+```go
+// Cancel the task
+success := cancel.Cancel()
+
+// Recover the task (if not yet executed)
+success := cancel.Recover()
+
+// Check if canceled
+isCanceled := cancel.IsCanceled()
 ```
 
 ## Complete Example
@@ -53,65 +85,44 @@ package main
 
 import (
     "fmt"
+    "time"
     "github.com/leoheung/go-patterns/container/pq"
 )
 
-type Task struct {
-    ID       int
-    Priority int
-    Name     string
-}
-
 func main() {
-    // Create a priority queue where higher priority tasks come first
-    pq, err := pq.NewPriorityQueue[Task](5, func(a, b Task) bool {
-        return a.Priority > b.Priority
+    // 1. Using the Scheduler
+    ptm, _ := pq.NewPriorityScheduledTaskManager()
+
+    // Submit a task
+    cancel, _ := ptm.PendNewTask(func() {
+        fmt.Println("This is a delayed task")
+    }, time.Now().Add(1 * time.Second))
+
+    // Decide to cancel it later
+    if cancel.Cancel() {
+        fmt.Println("Task successfully canceled")
+    }
+
+    // 2. Using the Priority Queue
+    queue, _ := pq.NewPriorityQueue[string](5, func(a, b string) bool {
+        return len(a) < len(b) // Shortest string first
     })
-    if err != nil {
-        fmt.Printf("Error creating priority queue: %v\n", err)
-        return
-    }
 
-    // Add tasks with different priorities
-    tasks := []Task{
-        {ID: 1, Priority: 3, Name: "Task 1"},
-        {ID: 2, Priority: 1, Name: "Task 2"},
-        {ID: 3, Priority: 5, Name: "Task 3"},
-        {ID: 4, Priority: 2, Name: "Task 4"},
-        {ID: 5, Priority: 4, Name: "Task 5"},
-    }
+    queue.Enqueue("apple")
+    queue.Enqueue("go")
+    queue.Enqueue("banana")
 
-    for _, task := range tasks {
-        if err := pq.Enqueue(task); err != nil {
-            fmt.Printf("Error enqueueing task %d: %v\n", task.ID, err)
-        }
-    }
+    item, _ := queue.Dequeue()
+    fmt.Printf("Highest priority (shortest): %s\n", item) // Output: go
 
-    // Process tasks in priority order
-    for pq.Len() > 0 {
-        task, err := pq.Dequeue()
-        if err != nil {
-            fmt.Printf("Error dequeuing task: %v\n", err)
-            continue
-        }
-        fmt.Printf("Processing Task %d: %s (Priority: %d)\n", task.ID, task.Name, task.Priority)
-    }
+    // Stop the scheduler
+    ptm.FinishAndQuit()
 }
-```
-
-## Output
-
-```
-Processing Task 3: Task 3 (Priority: 5)
-Processing Task 5: Task 5 (Priority: 4)
-Processing Task 1: Task 1 (Priority: 3)
-Processing Task 4: Task 4 (Priority: 2)
-Processing Task 2: Task 2 (Priority: 1)
 ```
 
 ## Features
 
-- **Generic support**: Works with any type
-- **Custom comparison**: Define your own priority logic
-- **Binary heap**: Efficient O(log n) enqueue/dequeue operations
-- **Type-safe**: Compile-time type checking
+- **Generic Support**: `PriorityQueue` works with any data type.
+- **Precise Scheduling**: `PriorityScheduledTaskManager` uses a priority queue internally to manage execution times, ensuring the next task is always triggered on time.
+- **Task Control**: Each scheduled task has an independent `Cancelable` controller.
+- **Thread-safe**: All operations are protected by mutexes.

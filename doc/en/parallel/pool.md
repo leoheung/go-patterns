@@ -1,6 +1,6 @@
 # Worker Pool
 
-Worker pool pattern for managing concurrent tasks.
+A lightweight worker pool implementation based on semaphores to control concurrency.
 
 ## Installation
 
@@ -13,23 +13,19 @@ import "github.com/leoheung/go-patterns/parallel/pool"
 ### Create a Worker Pool
 
 ```go
-// Create a worker pool with specified number of workers
-p := pool.NewWorkerPool(5) // 5 workers
+// Create a worker pool with a fixed number of workers
+p := pool.NewWorkerPool(5)
 ```
 
 ### Submit Tasks
 
 ```go
-// Submit a task to the pool
+// Blocking submit: waits for an available worker
 p.Submit(func() {
     // Task logic
 })
-```
 
-### Try Submit Tasks
-
-```go
-// Try to submit a task to the pool (non-blocking)
+// Non-blocking submit: returns false immediately if no worker is available
 success := p.TrySubmit(func() {
     // Task logic
 })
@@ -71,23 +67,9 @@ func main() {
 }
 ```
 
-## Output
-
-```
-Task 0 started
-Task 1 started
-Task 2 started
-Task 0 completed
-Task 3 started
-Task 1 completed
-Task 4 started
-...
-Total completed: 10
-```
-
 ## Features
 
-- **Fixed-size pool**: Controls concurrency level
-- **Task submission**: Submit tasks for execution
-- **Non-blocking submit**: TrySubmit for non-blocking task submission
-- **Panic recovery**: Automatically recovers from panics in tasks
+- **Concurrency Control**: Limits the number of goroutines running simultaneously.
+- **Panic Protection**: Automatically recovers from panics within tasks and logs the error, preventing the entire pool from crashing.
+- **Flexible Submission**: Supports both blocking (`Submit`) and non-blocking (`TrySubmit`) task dispatching.
+- **Resource Efficient**: Built on top of `SemaphoreByCond` for minimal overhead.
