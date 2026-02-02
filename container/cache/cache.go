@@ -40,8 +40,11 @@ func (c *Cache) Add(key string, data any, cachingDuration time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if _, ok := c.buffer[key]; ok {
-		return fmt.Errorf("failed to push the data with key: %s: the key already exists, please use another key", key)
+	var old *CacheItem
+	var ok bool
+
+	if old, ok = c.buffer[key]; ok {
+		old.cancelDelete.TryCancel()
 	}
 
 	cancel, err := c.manager.PendNewTask(func() {
@@ -53,6 +56,9 @@ func (c *Cache) Add(key string, data any, cachingDuration time.Duration) error {
 	}, time.Now().Add(cachingDuration))
 
 	if err != nil {
+		if old != nil{
+			old.cancelDelete.TryRecover()
+		}
 		return fmt.Errorf("failed to arrange caching expiration: %s", err.Error())
 	}
 
@@ -66,8 +72,8 @@ func (c *Cache) Add(key string, data any, cachingDuration time.Duration) error {
 }
 
 func (c *Cache) Get(key string) any {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	item, ok := c.buffer[key]
 	if ok {
@@ -100,7 +106,10 @@ func (c *Cache) Get(key string) any {
 func (c *Cache) Delete(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	delete(c.buffer, key)
+	if data, ok := c.buffer[key]; ok {
+		data.cancelDelete.TryCancel()
+		delete(c.buffer, key)
+	}
 }
 
 func (c *Cache) String() string {
