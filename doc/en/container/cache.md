@@ -1,11 +1,12 @@
 # Cache
 
-A cache implementation for storing and retrieving data with TTL support.
+A cache implementation for storing and retrieving data with TTL support and permanent caching capabilities.
 
 ## Installation
 
 ```go
 import "github.com/leoheung/go-patterns/container/cache"
+import "github.com/leoheung/go-patterns/net" // For pointer helper functions
 ```
 
 ## API Reference
@@ -23,17 +24,19 @@ if err != nil {
 ### Add
 
 ```go
-// Add a value with a specific TTL
-err := c.Add("key", "value", 5*time.Minute)
-if err != nil {
-    // Handle error
-}
+// Add a value with a specific TTL (requires *time.Duration)
+duration := 5 * time.Minute
+err := c.Add("key", "value", &duration)
+
+// Add a permanent value (pass nil)
+err := c.Add("permanent_key", "value", nil)
 ```
 
 ### Get
 
 ```go
 // Get a value (returns nil if key doesn't exist or is expired)
+// For non-permanent items, Get automatically resets the expiration time
 value := c.Get("key")
 if value != nil {
     // Use value
@@ -73,15 +76,17 @@ func main() {
         return
     }
 
-    // Add values
-    err = c.Add("user:1", "Alice", 5*time.Minute)
+    // 1. Add value with expiration
+    duration := 5 * time.Minute
+    err = c.Add("user:1", "Alice", &duration)
     if err != nil {
         fmt.Printf("Error adding user:1: %v\n", err)
     }
 
-    err = c.Add("user:2", "Bob", 10*time.Minute)
+    // 2. Add permanent value (nil duration)
+    err = c.Add("config:version", "v1.0.0", nil)
     if err != nil {
-        fmt.Printf("Error adding user:2: %v\n", err)
+        fmt.Printf("Error adding config: %v\n", err)
     }
 
     // Get value
@@ -101,7 +106,7 @@ func main() {
 
 ## Features
 
-- **TTL Support**: Entries automatically expire and are cleaned up based on the specified duration.
+- **Flexible Expiration**: Supports both automatic expiration (TTL) and permanent caching (`nil` duration).
+- **Auto-Renewal**: Automatically resets the expiration timer on every `Get` access for items with TTL.
 - **Thread-safe**: Uses RWMutex internally, supporting high-concurrency reads.
-- **Simple API**: Easy-to-use Add/Get interface.
 - **Priority-based Scheduling**: Uses `PriorityScheduledTaskManager` for precise management of expiration tasks.

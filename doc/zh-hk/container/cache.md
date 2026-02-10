@@ -1,11 +1,12 @@
 # 快取
 
-用於儲存及檢索數據的快取實現，支援 TTL。
+用於儲存及檢索數據的快取實現，支援 TTL 及永久緩存。
 
 ## 安裝
 
 ```go
 import "github.com/leoheung/go-patterns/container/cache"
+import "github.com/leoheung/go-patterns/net" // 用於 Ptr 輔助函數
 ```
 
 ## API 參考
@@ -23,17 +24,19 @@ if err != nil {
 ### 新增
 
 ```go
-// 以指定 TTL 新增數值
-err := c.Add("key", "value", 5*time.Minute)
-if err != nil {
-    // 處理錯誤
-}
+// 以指定 TTL 新增數值 (需要傳入 *time.Duration)
+duration := 5 * time.Minute
+err := c.Add("key", "value", &duration)
+
+// 新增永久緩存 (傳入 nil)
+err := c.Add("permanent_key", "value", nil)
 ```
 
 ### 取得
 
 ```go
 // 取得數值（若不存在或已過期則返回 nil）
+// 對於非永久緩存，每次 Get 會自動重置過期時間
 value := c.Get("key")
 if value != nil {
     // 使用數值
@@ -73,15 +76,17 @@ func main() {
         return
     }
 
-    // 新增數值
-    err = c.Add("user:1", "Alice", 5*time.Minute)
+    // 1. 新增帶過期時間的數值
+    duration := 5 * time.Minute
+    err = c.Add("user:1", "Alice", &duration)
     if err != nil {
         fmt.Printf("新增用戶 1 錯誤: %v\n", err)
     }
 
-    err = c.Add("user:2", "Bob", 10*time.Minute)
+    // 2. 新增永久緩存 (nil duration)
+    err = c.Add("config:version", "v1.0.0", nil)
     if err != nil {
-        fmt.Printf("新增用戶 2 錯誤: %v\n", err)
+        fmt.Printf("新增配置錯誤: %v\n", err)
     }
 
     // 取得數值
@@ -101,7 +106,7 @@ func main() {
 
 ## 特性
 
-- **支援 TTL**: 項目會根據設定的時間自動過期並清理
-- **線程安全**: 內部使用 RWMutex，支援高並發讀取
-- **簡單 API**: 易於使用的 Add/Get 介面
-- **基於優先級調度**: 使用 `PriorityScheduledTaskManager` 精確管理過期任務
+- **靈活的過期控制**: 支援自動過期 (TTL) 與永久緩存 (`nil` duration)。
+- **自動續期**: 對於有 TTL 的項目，每次 `Get` 訪問會自動重置過期時間。
+- **線程安全**: 內部使用 RWMutex，支援高並發讀取。
+- **基於優先級調度**: 使用 `PriorityScheduledTaskManager` 精確管理過期任務。
