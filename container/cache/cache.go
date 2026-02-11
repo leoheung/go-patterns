@@ -18,7 +18,7 @@ type Cache struct {
 
 type CacheItem struct {
 	data            any
-	cachingDuration time.Duration
+	cachingDuration *time.Duration
 	cancelDelete    *pq.Cancelable
 }
 
@@ -36,7 +36,7 @@ func NewCache() (*Cache, error) {
 	return cache, nil
 }
 
-func (c *Cache) Add(key string, data any, cachingDuration time.Duration) error {
+func (c *Cache) Add(key string, data any, cachingDuration *time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -44,28 +44,38 @@ func (c *Cache) Add(key string, data any, cachingDuration time.Duration) error {
 	var ok bool
 
 	if old, ok = c.buffer[key]; ok {
-		old.cancelDelete.TryCancel()
-	}
-
-	cancel, err := c.manager.PendNewTask(func() {
-		c.mu.Lock()
-		defer c.mu.Unlock()
-
-		delete(c.buffer, key)
-
-	}, time.Now().Add(cachingDuration))
-
-	if err != nil {
-		if old != nil{
-			old.cancelDelete.TryRecover()
+		if old.cancelDelete != nil {
+			old.cancelDelete.TryCancel()
 		}
-		return fmt.Errorf("failed to arrange caching expiration: %s", err.Error())
 	}
 
-	c.buffer[key] = &CacheItem{
-		data:            data,
-		cachingDuration: cachingDuration,
-		cancelDelete:    cancel,
+	if cachingDuration != nil {
+		cancel, err := c.manager.PendNewTask(func() {
+			c.mu.Lock()
+			defer c.mu.Unlock()
+
+			delete(c.buffer, key)
+
+		}, time.Now().Add(*cachingDuration))
+
+		if err != nil {
+			if old != nil && old.cancelDelete != nil {
+				old.cancelDelete.TryRecover()
+			}
+			return fmt.Errorf("failed to arrange caching expiration: %s", err.Error())
+		}
+
+		c.buffer[key] = &CacheItem{
+			data:            data,
+			cachingDuration: cachingDuration,
+			cancelDelete:    cancel,
+		}
+	} else {
+		c.buffer[key] = &CacheItem{
+			data:            data,
+			cachingDuration: cachingDuration,
+			cancelDelete:    nil,
+		}
 	}
 
 	return nil
@@ -77,25 +87,32 @@ func (c *Cache) Get(key string) any {
 
 	item, ok := c.buffer[key]
 	if ok {
-		if item.cancelDelete.TryCancel() {
-			utils.DevLogSuccess(fmt.Sprintf("[成功]cancel %s 的expire", key))
-		} else {
-			utils.DevLogError(fmt.Sprintf("[失敗]cancel %s 的expire", key))
+		if item.cancelDelete != nil {
+			if item.cancelDelete.TryCancel() {
+				utils.DevLogSuccess(fmt.Sprintf("[成功]cancel %s 的expire", key))
+			} else {
+				utils.DevLogError(fmt.Sprintf("[失敗]cancel %s 的expire", key))
+			}
 		}
 
-		newCancel, err := c.manager.PendNewTask(func() {
-			c.mu.Lock()
-			defer c.mu.Unlock()
+		if item.cachingDuration != nil {
+			newCancel, err := c.manager.PendNewTask(func() {
+				c.mu.Lock()
+				defer c.mu.Unlock()
 
-			delete(c.buffer, key)
+				delete(c.buffer, key)
 
-		}, time.Now().Add(item.cachingDuration))
-		if err != nil {
-			item.cancelDelete.TryRecover()
-			utils.DevLogError(fmt.Sprintf("[失敗]安排 %s 的新expire", key))
-		} else {
-			utils.DevLogSuccess(fmt.Sprintf("[成功]安排 %s 的新expire", key))
-			item.cancelDelete = newCancel
+			}, time.Now().Add(*item.cachingDuration))
+			if err != nil {
+				utils.DevLogError(fmt.Sprintf("[失敗]安排 %s 的新expire", key))
+
+				if item.cancelDelete != nil {
+					item.cancelDelete.TryRecover()
+				}
+			} else {
+				utils.DevLogSuccess(fmt.Sprintf("[成功]安排 %s 的新expire", key))
+				item.cancelDelete = newCancel
+			}
 		}
 		return item.data
 	} else {
@@ -107,7 +124,9 @@ func (c *Cache) Delete(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if data, ok := c.buffer[key]; ok {
-		data.cancelDelete.TryCancel()
+		if data.cancelDelete != nil {
+			data.cancelDelete.TryCancel()
+		}
 		delete(c.buffer, key)
 	}
 }
