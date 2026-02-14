@@ -17,14 +17,16 @@ type Handler interface {
 	SetOnDisconnect(func(*Conn))
 	SetOnMessage(func(*Conn, *Message))
 	SetOnError(func(*Conn, error))
+	SetHeartbeatConfig(*HeartbeatConfig)
 	Manager() *ConnManager
 }
 
 type DefaultHandler struct {
-	ID      string
-	manager *ConnManager
-	hooks   *Hooks
-	opts    *websocket.AcceptOptions
+	ID              string
+	manager         *ConnManager
+	hooks           *Hooks
+	opts            *websocket.AcceptOptions
+	heartbeatConfig *HeartbeatConfig
 }
 
 func NewDefaultHandler(opts *websocket.AcceptOptions) Handler {
@@ -56,6 +58,10 @@ func (h *DefaultHandler) SetOnError(fn func(*Conn, error)) {
 	h.hooks.OnError = fn
 }
 
+func (h *DefaultHandler) SetHeartbeatConfig(config *HeartbeatConfig) {
+	h.heartbeatConfig = config
+}
+
 func (h *DefaultHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn, err := websocket.Accept(w, r, h.opts)
 	if err != nil {
@@ -71,6 +77,10 @@ func (h *DefaultHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.DevLogInfo(fmt.Sprintf("[%s] Client connected: %s", h.ID, c.ID))
+
+	if h.heartbeatConfig != nil {
+		c.StartHeartbeat(r.Context(), h.heartbeatConfig)
+	}
 
 	h.handleConn(r.Context(), c)
 }

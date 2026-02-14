@@ -1,6 +1,8 @@
 package wrapsocket
 
 import (
+	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -18,6 +20,8 @@ type Conn struct {
 	closed      bool
 	closeCode   websocket.StatusCode
 	closeReason string
+	heartbeat   *Heartbeat
+	Group       string
 }
 
 func NewConn(ws *websocket.Conn) *Conn {
@@ -71,6 +75,9 @@ func (c *Conn) Close(code websocket.StatusCode, reason string) error {
 	c.closed = true
 	c.closeCode = code
 	c.closeReason = reason
+	if c.heartbeat != nil {
+		c.heartbeat.Stop()
+	}
 	return c.ws.Close(code, reason)
 }
 
@@ -78,4 +85,23 @@ func (c *Conn) IsClosed() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.closed
+}
+
+func (c *Conn) StartHeartbeat(ctx context.Context, config *HeartbeatConfig) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.heartbeat != nil {
+		return
+	}
+	c.heartbeat = NewHeartbeat(c, config)
+	go c.heartbeat.Start(ctx)
+}
+
+func (c *Conn) Write(ctx context.Context, msgType websocket.MessageType, data []byte) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed {
+		return fmt.Errorf("connection is closed")
+	}
+	return c.ws.Write(ctx, msgType, data)
 }

@@ -2,6 +2,7 @@ package wrapsocket
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/coder/websocket"
@@ -61,6 +62,42 @@ func (m *ConnManager) Broadcast(ctx context.Context, msgType websocket.MessageTy
 			if err := conn.ws.Write(ctx, msgType, data); err != nil {
 				continue
 			}
+		}
+	}
+	return nil
+}
+
+func (m *ConnManager) SendTo(ctx context.Context, connID string, msgType websocket.MessageType, data []byte) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	conn, ok := m.conns[connID]
+	if !ok {
+		return fmt.Errorf("connection not found: %s", connID)
+	}
+	if conn.IsClosed() {
+		return fmt.Errorf("connection is closed: %s", connID)
+	}
+	return conn.Write(ctx, msgType, data)
+}
+
+func (m *ConnManager) GetByGroup(group string) []*Conn {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	conns := make([]*Conn, 0)
+	for _, conn := range m.conns {
+		if conn.Group == group && !conn.IsClosed() {
+			conns = append(conns, conn)
+		}
+	}
+	return conns
+}
+
+func (m *ConnManager) SendToGroup(ctx context.Context, group string, msgType websocket.MessageType, data []byte) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, conn := range m.conns {
+		if conn.Group == group && !conn.IsClosed() {
+			_ = conn.Write(ctx, msgType, data)
 		}
 	}
 	return nil
