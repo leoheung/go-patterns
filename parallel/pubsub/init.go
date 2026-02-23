@@ -115,3 +115,37 @@ func Publish(topic string, data any) error {
 		return nil
 	}
 }
+
+func Close(topic string) error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if b == nil {
+		return fmt.Errorf("PubSub is not initialized")
+	}
+
+	if subscribers, ok := b.topics[topic]; !ok {
+		return fmt.Errorf("no subscribers")
+	} else {
+		for _, c := range subscribers {
+			tryCloseChan(c)
+		}
+
+		delete(b.topics, topic)
+		return nil
+	}
+
+}
+
+func tryCloseChan(ch chan<- any) (closed bool) {
+	defer func() {
+		if err := recover(); err != nil {
+			closed = false
+		}
+	}()
+
+	close(ch)
+
+	closed = true
+	return closed
+}
