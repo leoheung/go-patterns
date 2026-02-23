@@ -76,6 +76,14 @@ func (h *DefaultHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.hooks.OnConnect(c)
 	}
 
+	welcomeMsg := fmt.Sprintf(`{"type":"connected","id":"%s"}`, c.ID)
+	if err := c.ws.Write(r.Context(), websocket.MessageText, []byte(welcomeMsg)); err != nil {
+		utils.DevLogError(fmt.Sprintf("[%s] Failed to send welcome message: %v", h.ID, err))
+		h.manager.Remove(c.ID)
+		c.Close(websocket.StatusInternalError, "failed to send welcome")
+		return
+	}
+
 	utils.DevLogInfo(fmt.Sprintf("[%s] Client connected: %s", h.ID, c.ID))
 
 	if h.heartbeatConfig != nil {
