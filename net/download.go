@@ -13,7 +13,28 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/leoheung/go-patterns/utils"
 )
+
+func StreamDownloadHandler(w http.ResponseWriter, reader io.Reader, filename string, contentType string, size *int64) {
+	// 1. 设置下载头
+	w.Header().Set("Content-Disposition",
+		fmt.Sprintf("attachment; filename=%q", filename))
+	w.Header().Set("Content-Type", contentType)
+
+	// 2. 能知道长度就设置，不能就不设置（自动 chunked）
+	if size != nil {
+		w.Header().Set("Content-Length", strconv.FormatInt(*size, 10))
+	}
+
+	// 3. 统一流式拷贝（兼容任意 Reader）
+	_, err := io.Copy(w, reader)
+	if err != nil {
+		// 处理客户端断开、网络错误等
+		utils.DevLogError(fmt.Sprintf("copy failed: %v", err))
+	}
+}
 
 // DownloadFileByConcurrent 多Goroutine分片下载文件（自动保留原始后缀）
 // 参数说明：
