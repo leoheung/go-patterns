@@ -19,6 +19,29 @@ import "github.com/leoheung/go-patterns/net"
 err := net.DownloadFileByConcurrent("https://example.com/file.zip", "./downloads/", 4)
 ```
 
+### 流式下載
+
+將任意 `io.Reader` 流式傳輸到 HTTP 回應，自動設置正確的標頭。支援固定大小和分塊傳輸模式。
+
+```go
+// 已知檔案大小的流式下載
+fileData := bytes.NewReader(fileBytes)
+size := int64(len(fileBytes))
+net.StreamDownloadHandler(w, fileData, "report.pdf", "application/pdf", &size)
+
+// 未知檔案大小的流式下載（使用分塊傳輸）
+s3Reader := getS3ObjectReader(key)
+net.StreamDownloadHandler(w, s3Reader, "backup.zip", "application/zip", nil)
+```
+
+**參數說明：**
+
+- `w`: HTTP ResponseWriter
+- `reader`: 任意 io.Reader（檔案、記憶體緩衝、S3 物件等）
+- `filename`: 顯示給用戶的下載檔案名稱
+- `contentType`: MIME 類型（例如 "application/pdf", "application/octet-stream"）
+- `size`: 檔案大小指標（可選，傳入 nil 則使用分塊傳輸）
+
 ### HTTP 回應工具
 
 為 Web 服務提供標準化的 JSON 及 CSV 回應格式。
@@ -73,7 +96,7 @@ func main() {
             ID   int    `json:"id"`
             Name string `json:"name"`
         }{ID: 1, Name: "Pattern"}
-        
+
         net.ReturnJsonResponse(w, http.StatusOK, data)
     })
 

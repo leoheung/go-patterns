@@ -110,6 +110,29 @@ utils.DelayDo(500 * time.Millisecond, func() {
 utils.Hold()
 ```
 
+### 7. Channel 操作
+
+非阻塞和帶超時的 Channel 操作，防止 Goroutine 阻塞洩漏。
+
+```go
+// 非阻塞入隊（Channel 滿時立即返回 false）
+ch := make(chan int, 2)
+success := utils.TryEnqueue(ch, 42)  // true
+success = utils.TryEnqueue(ch, 43)   // true
+success = utils.TryEnqueue(ch, 44)   // false（Channel 已滿）
+
+// 非阻塞出隊（Channel 空時立即返回 nil, false）
+val, ok := utils.TryDequeue(ch)  // &42, true
+val, ok = utils.TryDequeue(ch)   // &43, true
+val, ok = utils.TryDequeue(ch)   // nil, false（Channel 為空）
+
+// 帶超時的入隊
+ok := utils.EnqueueWithTimeout(ch, 100, 100*time.Millisecond)
+
+// 帶超時的出隊
+val, ok := utils.DequeueWithTimeout(ch, 100*time.Millisecond)
+```
+
 ## 完整範例
 
 ```go
@@ -126,7 +149,7 @@ func main() {
         Name string
         Age  int
     }{"Leon", 25}
-    
+
     fmt.Println("用戶資料：")
     utils.PPrint(user)
 

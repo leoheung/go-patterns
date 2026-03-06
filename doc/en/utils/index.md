@@ -110,6 +110,29 @@ utils.DelayDo(500 * time.Millisecond, func() {
 utils.Hold()
 ```
 
+### 7. Channel Operations
+
+Non-blocking and timeout-based channel operations to prevent Goroutine leaks.
+
+```go
+// Non-blocking enqueue (returns false immediately if channel is full)
+ch := make(chan int, 2)
+success := utils.TryEnqueue(ch, 42)  // true
+success = utils.TryEnqueue(ch, 43)   // true
+success = utils.TryEnqueue(ch, 44)   // false (channel full)
+
+// Non-blocking dequeue (returns nil, false immediately if channel is empty)
+val, ok := utils.TryDequeue(ch)  // &42, true
+val, ok = utils.TryDequeue(ch)   // &43, true
+val, ok = utils.TryDequeue(ch)   // nil, false (channel empty)
+
+// Enqueue with timeout
+ok := utils.EnqueueWithTimeout(ch, 100, 100*time.Millisecond)
+
+// Dequeue with timeout
+val, ok := utils.DequeueWithTimeout(ch, 100*time.Millisecond)
+```
+
 ## Complete Example
 
 ```go
@@ -126,7 +149,7 @@ func main() {
         Name string
         Age  int
     }{"Leon", 25}
-    
+
     fmt.Println("User data:")
     utils.PPrint(user)
 

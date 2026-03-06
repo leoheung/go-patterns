@@ -19,6 +19,29 @@ Download files using multiple goroutines with progress tracking.
 err := net.DownloadFileByConcurrent("https://example.com/file.zip", "./downloads/", 4)
 ```
 
+### Stream Download
+
+Stream any `io.Reader` to HTTP response with proper headers. Supports both fixed-size and chunked transfer.
+
+```go
+// Stream download with known file size
+fileData := bytes.NewReader(fileBytes)
+size := int64(len(fileBytes))
+net.StreamDownloadHandler(w, fileData, "report.pdf", "application/pdf", &size)
+
+// Stream download with unknown size (uses chunked transfer)
+s3Reader := getS3ObjectReader(key)
+net.StreamDownloadHandler(w, s3Reader, "backup.zip", "application/zip", nil)
+```
+
+**Parameters:**
+
+- `w`: HTTP ResponseWriter
+- `reader`: Any io.Reader (file, memory buffer, S3 object, etc.)
+- `filename`: Download filename shown to user
+- `contentType`: MIME type (e.g., "application/pdf", "application/octet-stream")
+- `size`: File size pointer (optional, pass nil for chunked transfer)
+
 ### HTTP Response Helpers
 
 Standardized JSON and CSV response helpers for web services.
@@ -73,7 +96,7 @@ func main() {
             ID   int    `json:"id"`
             Name string `json:"name"`
         }{ID: 1, Name: "Pattern"}
-        
+
         net.ReturnJsonResponse(w, http.StatusOK, data)
     })
 
