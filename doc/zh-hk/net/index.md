@@ -42,6 +42,36 @@ net.StreamDownloadHandler(w, s3Reader, "backup.zip", "application/zip", nil)
 - `contentType`: MIME 類型（例如 "application/pdf", "application/octet-stream"）
 - `size`: 檔案大小指標（可選，傳入 nil 則使用分塊傳輸）
 
+### WebSocket 管理器
+
+高級 WebSocket 連接管理框架。詳見 [WebSocket 文檔](./wrapsocket)。
+
+```go
+import "github.com/leoheung/go-patterns/net/wrapsocket"
+
+// 創建 WebSocket Handler
+handler := wrapsocket.NewDefaultHandler(nil)
+
+// 設置回調
+handler.SetOnConnect(func(conn *wrapsocket.Conn) {
+    fmt.Printf("客戶端已連接: %s\n", conn.ID)
+})
+
+handler.SetOnMessage(func(conn *wrapsocket.Conn, msg *wrapsocket.Message) {
+    // 回傳消息
+    conn.Write(ctx, msg.Type, msg.Data)
+})
+
+http.ListenAndServe(":8080", handler)
+```
+
+**特性：**
+
+- 連接生命週期管理
+- 心跳檢測
+- 分組廣播
+- 元數據存儲
+
 ### HTTP 回應工具
 
 為 Web 服務提供標準化的 JSON 及 CSV 回應格式。

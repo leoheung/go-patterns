@@ -42,6 +42,36 @@ net.StreamDownloadHandler(w, s3Reader, "backup.zip", "application/zip", nil)
 - `contentType`: MIME type (e.g., "application/pdf", "application/octet-stream")
 - `size`: File size pointer (optional, pass nil for chunked transfer)
 
+### WebSocket Manager
+
+A high-level WebSocket connection management framework. See [WebSocket Documentation](./wrapsocket) for details.
+
+```go
+import "github.com/leoheung/go-patterns/net/wrapsocket"
+
+// Create WebSocket handler
+handler := wrapsocket.NewDefaultHandler(nil)
+
+// Set callbacks
+handler.SetOnConnect(func(conn *wrapsocket.Conn) {
+    fmt.Printf("Client connected: %s\n", conn.ID)
+})
+
+handler.SetOnMessage(func(conn *wrapsocket.Conn, msg *wrapsocket.Message) {
+    // Echo message back
+    conn.Write(ctx, msg.Type, msg.Data)
+})
+
+http.ListenAndServe(":8080", handler)
+```
+
+**Features:**
+
+- Connection lifecycle management
+- Heartbeat detection
+- Group broadcasting
+- Metadata storage
+
 ### HTTP Response Helpers
 
 Standardized JSON and CSV response helpers for web services.
