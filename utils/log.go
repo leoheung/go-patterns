@@ -21,19 +21,13 @@ func LogMessage(message string) {
 }
 
 func DevLogError(errMsg string) {
-	if IsDev() {
-		PrintlnColor(Red, errMsg)
-	}
+	PrintlnColor(Red, errMsg)
 }
 
 func DevLogInfo(infoMsg string) {
-	if IsDev() {
-		PrintlnColor(BrightBlue, infoMsg)
-	}
+	PrintlnColor(BrightBlue, infoMsg)
 }
 
 func DevLogSuccess(successMsg string) {
-	if IsDev() {
-		PrintlnColor(Green, successMsg)
-	}
+	PrintlnColor(Green, successMsg)
 }
