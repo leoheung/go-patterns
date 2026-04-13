@@ -141,6 +141,6 @@ func Request(req *http.Request) (data []byte, httpCode int, err error) {
 	return
 }
 
-func ParseResponse(data []byte, dest any) error {
+func ParseResponse[T any](data []byte, dest *T) error {
 	return json.Unmarshal(data, dest)
 }
