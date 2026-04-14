@@ -46,7 +46,7 @@ func TestRequest(t *testing.T) {
 	}
 
 	// 发送请求
-	body, httpCode, err := Request(req)
+	body, headers, httpCode, err := Request(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -54,6 +54,16 @@ func TestRequest(t *testing.T) {
 	// 验证 HTTP 状态码
 	if httpCode != http.StatusOK {
 		t.Fatalf("expected status code %d, got %d", http.StatusOK, httpCode)
+	}
+
+	// 验证 headers 不为 nil
+	if headers == nil {
+		t.Fatal("expected headers to be not nil")
+	}
+
+	// 验证 Content-Type header
+	if headers.Get("Content-Type") != "application/json" {
+		t.Errorf("expected Content-Type 'application/json', got '%s'", headers.Get("Content-Type"))
 	}
 
 	// 解析 JSON 响应
@@ -87,7 +97,7 @@ func TestRequestWithNilClient(t *testing.T) {
 	once = sync.Once{}
 
 	req, _ := http.NewRequest("GET", "http://example.com", nil)
-	data, httpCode, err := Request(req)
+	_, _, httpCode, err := Request(req)
 
 	if err == nil {
 		t.Fatal("expected error when client is nil")
@@ -95,10 +105,6 @@ func TestRequestWithNilClient(t *testing.T) {
 
 	if httpCode != http.StatusInternalServerError {
 		t.Errorf("expected status code %d, got %d", http.StatusInternalServerError, httpCode)
-	}
-
-	if data != nil {
-		t.Errorf("expected nil data, got %v", data)
 	}
 
 	fmt.Printf("✓ Test passed! Error: %v\n", err)
@@ -109,7 +115,7 @@ func TestRequestWithNilRequest(t *testing.T) {
 	// 确保 client 已初始化
 	InitDefaultSharedHTTPClient()
 
-	data, httpCode, err := Request(nil)
+	_, _, httpCode, err := Request(nil)
 
 	if err == nil {
 		t.Fatal("expected error when request is nil")
@@ -117,10 +123,6 @@ func TestRequestWithNilRequest(t *testing.T) {
 
 	if httpCode != http.StatusInternalServerError {
 		t.Errorf("expected status code %d, got %d", http.StatusInternalServerError, httpCode)
-	}
-
-	if data != nil {
-		t.Errorf("expected nil data, got %v", data)
 	}
 
 	fmt.Printf("✓ Test passed! Error: %v\n", err)

@@ -88,9 +88,10 @@ func InitSharedHTTPClientWithConfig(config *HTTPClientConfig) {
 	})
 }
 
-func Request(req *http.Request) (data []byte, httpCode int, err error) {
+func Request(req *http.Request) (data []byte, headers http.Header, httpCode int, err error) {
 	defer func() {
 		if r := recover(); r != nil {
+			headers = nil
 			data = nil
 			httpCode = http.StatusInternalServerError
 			err = fmt.Errorf("panic: %v", r)
@@ -98,6 +99,7 @@ func Request(req *http.Request) (data []byte, httpCode int, err error) {
 	}()
 
 	if sharedHTTPClient == nil {
+		headers = nil
 		data = nil
 		httpCode = http.StatusInternalServerError
 		err = fmt.Errorf("shared http client is not initialized yet")
@@ -105,6 +107,7 @@ func Request(req *http.Request) (data []byte, httpCode int, err error) {
 	}
 
 	if req == nil {
+		headers = nil
 		data = nil
 		httpCode = http.StatusInternalServerError
 		err = fmt.Errorf("req is nil")
@@ -113,6 +116,7 @@ func Request(req *http.Request) (data []byte, httpCode int, err error) {
 
 	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
+		headers = nil
 		data = nil
 		httpCode = 0
 		err = fmt.Errorf("failed to send request: %w", err)
@@ -120,6 +124,7 @@ func Request(req *http.Request) (data []byte, httpCode int, err error) {
 	}
 
 	if resp == nil {
+		headers = nil
 		data = nil
 		httpCode = 0
 		err = fmt.Errorf("response is nil")
@@ -129,8 +134,11 @@ func Request(req *http.Request) (data []byte, httpCode int, err error) {
 	defer resp.Body.Close()
 
 	httpCode = resp.StatusCode
+	headers = resp.Header
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		headers = nil
 		data = nil
 		err = fmt.Errorf("failed to read response body: %w", err)
 		return
