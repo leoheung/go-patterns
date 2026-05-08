@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 )
 
 func IsDev() bool {
@@ -21,13 +22,13 @@ func LogMessage(message string) {
 }
 
 func DevLogError(errMsg string) {
-	PrintlnColor(Red, errMsg)
+	PrintlnColor(Red, fmt.Sprintf("[Dev Logs] - %s: %s", time.Now().Format("2006-01-02 15:04:05"), errMsg))
 }
 
 func DevLogInfo(infoMsg string) {
-	PrintlnColor(BrightBlue, infoMsg)
+	PrintlnColor(BrightBlue, fmt.Sprintf("[Dev Logs] - %s: %s", time.Now().Format("2006-01-02 15:04:05"), infoMsg))
 }
 
 func DevLogSuccess(successMsg string) {
-	PrintlnColor(Green, successMsg)
+	PrintlnColor(Green, fmt.Sprintf("[Dev Logs] - %s: %s", time.Now().Format("2006-01-02 15:04:05"), successMsg))
 }
