@@ -11,13 +11,20 @@ type WorkerPool struct {
 	sem *semaphore.SemaphoreByCond
 }
 
+type Task func() error
+type OnError func(error)
+
 func NewWorkerPool(numWorkers int) *WorkerPool {
+	if numWorkers <= 0 {
+		panic("numWorkers must be > 0")
+	}
+
 	return &WorkerPool{
 		sem: semaphore.NewSemaphoreByCond(numWorkers),
 	}
 }
 
-func (wp *WorkerPool) Submit(task func()) {
+func (wp *WorkerPool) Submit(task Task, onError OnError) {
 	if task == nil {
 		return
 	}
@@ -25,15 +32,21 @@ func (wp *WorkerPool) Submit(task func()) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				utils.LogMessage(fmt.Sprintf("%v", r))
+				utils.LogMessage(fmt.Sprintf("panic when executing task: %v", r))
 			}
 			wp.sem.Release()
 		}()
-		task()
+		err := task()
+		if err != nil {
+			utils.LogMessage(fmt.Sprintf("error when executing task: %s", err.Error()))
+			if onError != nil {
+				onError(err)
+			}
+		}
 	}()
 }
 
-func (wp *WorkerPool) TrySubmit(task func()) bool {
+func (wp *WorkerPool) TrySubmit(task Task, onError OnError) bool {
 	if task == nil {
 		return false
 	}
@@ -43,11 +56,18 @@ func (wp *WorkerPool) TrySubmit(task func()) bool {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				utils.LogMessage(fmt.Sprintf("%v", r))
+				utils.LogMessage(fmt.Sprintf("panic when executing task: %v", r))
 			}
 			wp.sem.Release()
 		}()
-		task()
+
+		err := task()
+		if err != nil {
+			utils.LogMessage(fmt.Sprintf("error when executing task: %s", err.Error()))
+			if onError != nil {
+				onError(err)
+			}
+		}
 	}()
 	return true
 }
