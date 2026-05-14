@@ -107,6 +107,50 @@ b := net.PtrBool(true)
 t := net.PtrTime(time.Now())
 ```
 
+### Safe Body Reading
+
+Reads HTTP request/response body safely with size limit to prevent memory issues.
+
+```go
+// Read body with size limit (in MB)
+data, err := net.SafelyReadBody(r.Body, net.PtrInt(10))
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Read %d bytes\n", len(data))
+```
+
+### Deep Copy HTTP Request
+
+Creates a complete deep copy of an HTTP request, including the body content.
+
+```go
+// Deep copy a request with 10MB body limit
+reqCopy, err := net.DeepCopyRequest(r, 10)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Now you can process reqCopy without affecting the original r.Body
+process(reqCopy)
+next.ServeHTTP(w, r) // Original request still has its body intact
+```
+
+### Deep Copy HTTP Response
+
+Creates a complete deep copy of an HTTP response, including the body content.
+
+```go
+// Deep copy a response with 10MB body limit
+respCopy, err := net.DeepCopyResponse(resp, 10)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Now you can process respCopy without affecting the original
+cacheResponse(respCopy)
+```
+
 ## Complete Example
 
 ```go
@@ -146,3 +190,5 @@ func main() {
 - **Standardized Responses**: Consistent `UniversalResponse` structure for JSON APIs.
 - **Route Debugging**: Easily visualize Chi router structures.
 - **Pointer Utils**: Convenient helpers for handling optional fields in structs.
+- **Safe Body Reading**: Prevent memory issues by limiting body size.
+- **Deep Copy Request/Response**: Complete deep copy of HTTP messages for middleware processing.

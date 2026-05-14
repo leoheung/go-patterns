@@ -107,6 +107,50 @@ b := net.PtrBool(true)
 t := net.PtrTime(time.Now())
 ```
 
+### 安全讀取 Body
+
+安全地讀取 HTTP 請求/回應 Body，限制大小以防止記憶體問題。
+
+```go
+// 讀取 Body，限制大小（以 MB 為單位）
+data, err := net.SafelyReadBody(r.Body, net.PtrInt(10))
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("讀取了 %d 位元組\n", len(data))
+```
+
+### 深拷貝 HTTP 請求
+
+創建 HTTP 請求的完整深拷貝，包括 Body 內容。
+
+```go
+// 深拷貝請求，Body 限制為 10MB
+reqCopy, err := net.DeepCopyRequest(r, 10)
+if err != nil {
+    log.Fatal(err)
+}
+
+// 現在您可以處理 reqCopy 而不影響原始的 r.Body
+process(reqCopy)
+next.ServeHTTP(w, r) // 原始請求的 Body 仍然完好
+```
+
+### 深拷貝 HTTP 回應
+
+創建 HTTP 回應的完整深拷貝，包括 Body 內容。
+
+```go
+// 深拷貝回應，Body 限制為 10MB
+respCopy, err := net.DeepCopyResponse(resp, 10)
+if err != nil {
+    log.Fatal(err)
+}
+
+// 現在您可以處理 respCopy 而不影響原始回應
+cacheResponse(respCopy)
+```
+
 ## 完整範例
 
 ```go
@@ -146,3 +190,5 @@ func main() {
 - **標準化回應**: 統一的 `UniversalResponse` 結構，包含 `isSuccess` 標誌。
 - **路由可視化**: 方便地查看 Chi 路由器的層級結構與中間件。
 - **類型指針化**: 簡化 Go 中基本類型轉指針的操作。
+- **安全 Body 讀取**: 通過限制 Body 大小來防止記憶體問題。
+- **深拷貝請求/回應**: 完整的 HTTP 消息深拷貝，用於中間件處理。
