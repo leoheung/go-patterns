@@ -11,9 +11,6 @@ type WorkerPool struct {
 	sem *semaphore.SemaphoreByCond
 }
 
-type Task func() error
-type OnError func(error)
-
 func NewWorkerPool(numWorkers int) *WorkerPool {
 	if numWorkers <= 0 {
 		panic("numWorkers must be > 0")
