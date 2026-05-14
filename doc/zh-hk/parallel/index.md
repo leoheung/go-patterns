@@ -44,6 +44,7 @@
 - 固定大小的 Worker Pool
 - 任務隊列
 - 優雅關閉
+- [AsyncPool](./asyncpool.md) - 帶緩衝區支持的異步任務池
 
 ### [PubSub](./pubsub.md)
 發布-訂閱模式實現。
@@ -68,3 +69,10 @@
 - 可配置的許可數
 - Acquire/Release 操作
 - Channel 及條件變數實現
+
+### [Token](./token.md)
+基於令牌的同步原語。
+
+特性：
+- BoolToken - 線程安全的布爾值
+- StaticTokens - 固定數量的令牌用於限流

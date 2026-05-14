@@ -96,6 +96,24 @@ net.ReturnCSVResponse(w, "users.csv", headers, rows)
 net.PrintCHIRoutes(r)
 ```
 
+### Shared HTTP Client
+
+Thread-safe reusable HTTP client with connection pooling. See [Clients Documentation](./clients) for details.
+
+```go
+// Initialize shared HTTP client
+clients.InitDefaultSharedHTTPClient()
+
+// Make requests
+resp, headers, code, err := clients.Request(req)
+```
+
+**Features:**
+- Connection pooling with configurable limits
+- TLS and proxy configuration
+- Built-in panic recovery
+- Generic JSON response parsing
+
 ### Pointer Helpers
 
 Commonly used to create pointers for primitive types (useful for database models).

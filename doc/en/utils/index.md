@@ -4,134 +4,29 @@ The `utils` package provides a collection of utility functions for common operat
 
 ## Modules
 
-### 1. Logging and Environment Awareness
-
+### [Logging](./log.md)
 Automatically identifies development or production environments and adopts different logging methods.
 
-```go
-import "github.com/leoheung/go-patterns/utils"
+### [Retry](./retry.md)
+Provides protection mechanisms with retry capabilities for unstable operations.
 
-// Check if in development environment (determined by env == "dev" environment variable)
-isDev := utils.IsDev()
+### [Timeout](./timeout.md)
+Adds timeout limits to operations.
 
-// Log message (uses fmt.Println in dev, standard library log in prod)
-utils.LogMessage("Hello, world!")
-
-// Dev-only colored logs (outputs only when IsDev() is true)
-utils.DevLogError("This is an error message")
-utils.DevLogInfo("This is an info message")
-utils.DevLogSuccess("This is a success message")
-```
-
-### 2. Retry and Timeout Control
-
-Provides protection mechanisms for unstable operations.
-
-```go
-// Retry a work function
-// work: function to execute, returns (any, error)
-// retryTimes: number of retries after initial failure
-data, err := utils.RetryWork(func() (any, error) {
-    // business logic
-    return "result", nil
-}, 3)
-
-// Execution with timeout
-// Returns fmt.Errorf("timeout") if timed out
-res, err := utils.TimeoutWork(func() (any, error) {
-    time.Sleep(2 * time.Second)
-    return "done", nil
-}, 1 * time.Second)
-```
-
-### 3. Object Beautification and JSON Processing
-
+### [Pretty Print](./pretty.md)
 Advanced beautification tools based on `go-spew`.
 
-```go
-// Formatted printing of any object (common for debugging)
-utils.PPrint(myStruct)
-utils.PPrettyPrint(myStruct)
+### [Color](./color.md)
+Colored terminal output using ANSI escape sequences.
 
-// Get a pretty string representation of an object (no direct printing)
-str := utils.PrettyObjStr(myStruct)
-
-// Serialize an object to a pretty JSON string (falls back to PrettyObjStr on failure)
-jsonStr := utils.JSONalizeStr(myStruct)
-
-// Deserialize a JSON string to an object (must pass a pointer)
-err := utils.DeJSONalizeStr(jsonStr, &myTarget)
-```
-
-### 4. Colored Terminal Output
-
-```go
-// Output colored text using ANSI escape sequences
-utils.PrintlnColor(utils.Red, "Red text")
-utils.PrintlnColor(utils.Green, "Green text")
-utils.PrintlnColor(utils.BrightBlue, "Bright blue text")
-
-// Available color constants:
-// utils.Red, utils.Green, utils.BrightBlue, utils.Magenta, utils.Cyan
-```
-
-### 5. Number Utils
-
+### [Number](./number.md)
 Simulates numeric processing found in dynamic languages.
 
-```go
-// Parse a string into a Number object
-n, err := utils.ParseNumber("100.5")
+### [Common](./common.md)
+Common helper functions.
 
-// Get values in different types
-f := n.Float()   // 100.5
-i := n.Int()     // 100
-i64 := n.Int64() // 100
-
-// Check if it's an integer (no fractional part)
-isUint := n.IsInteger() // false
-```
-
-### 6. Common Helpers
-
-```go
-// Check if any value is nil (supports Interface, Slice, Map, Ptr, etc.)
-isNull := utils.IsNil(someVar)
-
-// Check if a string consists entirely of digits
-allDigits := utils.IsDigits("12345")
-
-// Delayed function execution (blocking)
-utils.DelayDo(500 * time.Millisecond, func() {
-    fmt.Println("Delayed execution")
-})
-
-// Block the current Goroutine indefinitely
-utils.Hold()
-```
-
-### 7. Channel Operations
-
-Non-blocking and timeout-based channel operations to prevent Goroutine leaks.
-
-```go
-// Non-blocking enqueue (returns false immediately if channel is full)
-ch := make(chan int, 2)
-success := utils.TryEnqueue(ch, 42)  // true
-success = utils.TryEnqueue(ch, 43)   // true
-success = utils.TryEnqueue(ch, 44)   // false (channel full)
-
-// Non-blocking dequeue (returns nil, false immediately if channel is empty)
-val, ok := utils.TryDequeue(ch)  // &42, true
-val, ok = utils.TryDequeue(ch)   // &43, true
-val, ok = utils.TryDequeue(ch)   // nil, false (channel empty)
-
-// Enqueue with timeout
-ok := utils.EnqueueWithTimeout(ch, 100, 100*time.Millisecond)
-
-// Dequeue with timeout
-val, ok := utils.DequeueWithTimeout(ch, 100*time.Millisecond)
-```
+### [Channel](./channel.md)
+Non-blocking and timeout-based channel operations.
 
 ## Complete Example
 

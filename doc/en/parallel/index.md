@@ -44,6 +44,7 @@ Features:
 - Fixed-size worker pool
 - Task queue
 - Graceful shutdown
+- [AsyncPool](./asyncpool.md) - Async task pool with buffer support
 
 ### [PubSub](./pubsub.md)
 Publish-Subscribe pattern implementation.
@@ -68,3 +69,10 @@ Features:
 - Configurable permits
 - Acquire/Release operations
 - Channel and condition variable implementations
+
+### [Token](./token.md)
+Token-based synchronization primitives.
+
+Features:
+- BoolToken - Thread-safe boolean value
+- StaticTokens - Fixed token count for rate limiting

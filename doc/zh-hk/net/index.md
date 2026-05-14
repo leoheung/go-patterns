@@ -96,6 +96,24 @@ net.ReturnCSVResponse(w, "users.csv", headers, rows)
 net.PrintCHIRoutes(r)
 ```
 
+### 共享 HTTP 客戶端
+
+線程安全的可重用 HTTP 客戶端，具有連接池功能。詳見 [客戶端文檔](./clients)。
+
+```go
+// 初始化共享 HTTP 客戶端
+clients.InitDefaultSharedHTTPClient()
+
+// 發送請求
+resp, headers, code, err := clients.Request(req)
+```
+
+**特性：**
+- 可配置的連接池限制
+- TLS 和代理配置
+- 內置 Panic 恢復
+- 通用 JSON 響應解析
+
 ### 指針輔助函數
 
 用於快速建立基本類型的指針（在處理資料庫模型的可選字段時非常有用）。
