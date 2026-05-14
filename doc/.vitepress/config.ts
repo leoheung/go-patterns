@@ -124,9 +124,11 @@ function sidebar(lang: string) {
           { text: 'Mutex', link: `/${lang}/parallel/mutex` },
           { text: 'Pipeline', link: `/${lang}/parallel/pipeline` },
           { text: isEn ? 'Worker Pool' : '工作池', link: `/${lang}/parallel/pool` },
+          { text: 'AsyncPool', link: `/${lang}/parallel/asyncpool` },
           { text: 'PubSub', link: `/${lang}/parallel/pubsub` },
           { text: isEn ? 'Read-Write Lock' : '讀寫鎖', link: `/${lang}/parallel/rwlock` },
-          { text: 'Semaphore', link: `/${lang}/parallel/semaphore` }
+          { text: 'Semaphore', link: `/${lang}/parallel/semaphore` },
+          { text: 'Token', link: `/${lang}/parallel/token` }
         ]
       }
     ],
