@@ -67,7 +67,7 @@ func FanOut[X any](q <-chan struct{}, in <-chan X, num int) []chan X {
     wg.Add(num) // 每个输出通道对应一个goroutine
 
     // 为每个输出通道启动goroutine，负责抢读数据
-    for i := 0; i < num; i++ {
+    for i := range num {
         go func(outChan chan<- X) {
             defer func() {
                 wg.Done()
