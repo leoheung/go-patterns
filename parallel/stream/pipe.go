@@ -1,4 +1,4 @@
-package fluent
+package stream
 
 import "sync"
 
@@ -259,7 +259,6 @@ func FanIn(quit_ch chan struct{}, pipelines ...*Pipeline) *Pipeline {
 			quit: quit_ch,
 		}
 	}
-
 
 	next := Pipeline{
 		quit: quit_ch,
