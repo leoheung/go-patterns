@@ -359,15 +359,44 @@ func (p *Pipeline) Broadcast(n int) []*Pipeline {
 	return ret
 }
 
-// Parallel 并行处理：N 个 worker 同时执行 fn，结果自动合并
+// Parallel 并行处理：N 个 worker 同时争抢执行 fn，结果自动合并
 //
-//	等价于 FanOut(n) → N × Transform(fn) → FanIn
+//	N 个 goroutine 同时从输入 channel 争抢读取，执行 fn 后写入输出 channel
 func (p *Pipeline) Parallel(n int, fn func(any) any) *Pipeline {
-	fanouts := p.FanOut(n)
-	for i, o := range fanouts {
-		fanouts[i] = o.Transform(fn)
+	next := Pipeline{
+		quit: p.quit,
+		ch:   make(chan any),
 	}
-	return fanouts[0].Join(fanouts[1:]...)
+
+	var wg sync.WaitGroup
+	wg.Add(n)
+
+	// 启动 N 个 worker，同时争抢 p.ch
+	for range n {
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-p.quit:
+					return
+				case x, ok := <-p.ch:
+					if !ok {
+						return
+					}
+					result := fn(x)
+					next.ch <- result
+				}
+			}
+		}()
+	}
+
+	// 等待所有 worker 完成后关闭输出
+	go func() {
+		wg.Wait()
+		close(next.ch)
+	}()
+
+	return &next
 }
 
 // ═══════════════════════════════════════════════════════
