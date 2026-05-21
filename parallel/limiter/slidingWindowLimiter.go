@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/leoheung/go-patterns/container/safelist"
+	"github.com/leoheung/go-patterns/container/safeslice"
 	"github.com/leoheung/go-patterns/container/safemap"
 )
 
