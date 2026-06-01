@@ -1,6 +1,7 @@
 package safemap
 
 import (
+	"fmt"
 	"sync"
 	"unsafe"
 )
@@ -133,21 +134,22 @@ func (sm *ShardedMap[K, V]) GetOrStore(key K, value V) (actual V, loaded bool) {
 	return value, false
 }
 
-func (sm *ShardedMap[K, V]) ComputeIfAbsent(key K, compute func() V) V {
+func (sm *ShardedMap[K, V]) Compute(key K, computeAbsent func() V, computePresent func(V) V) error {
 	s := sm.getShard(key)
-	s.mu.RLock()
-	if val, ok := s.data[key]; ok {
-		s.mu.RUnlock()
-		return val
-	}
-	s.mu.RUnlock()
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if val, ok := s.data[key]; ok {
-		return val
+
+	if val, ok := s.data[key]; ok && computePresent != nil {
+		newVal := computePresent(val)
+		s.data[key] = newVal
+		return nil
 	}
-	val := compute()
-	s.data[key] = val
-	return val
+
+	if computeAbsent != nil {
+		val := computeAbsent()
+		s.data[key] = val
+		return nil
+	}
+
+	return fmt.Errorf("invalid parameters")
 }
