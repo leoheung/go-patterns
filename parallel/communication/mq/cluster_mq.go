@@ -15,7 +15,7 @@ import (
 	"github.com/leoheung/go-patterns/utils"
 )
 
-var _ MQ = (*ClusterMQ)(nil)
+var _ MQ = new(ClusterMQ)
 
 type topic = string
 
