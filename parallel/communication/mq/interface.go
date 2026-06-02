@@ -2,6 +2,7 @@ package mq
 
 import (
 	"context"
+	"sync"
 	"time"
 )
 
@@ -24,18 +25,19 @@ type subscriber struct {
 	id           string
 	callback_url string
 	maxInflight  int
+	mu           sync.Mutex
 }
 
 type HttpClient interface {
-	Send(ctx context.Context, url string, msg Message)
+	Send(ctx context.Context, sub *subscriber, msg *Message) error
 }
 
 type Broadcaster interface {
-	Broadcast(ctx context.Context, topic string, msg Message) error
+	Broadcast(ctx context.Context, msg *Message) error
 }
 
 type Publisher interface {
-	Publish(ctx context.Context, msg Message) error
+	Publish(ctx context.Context, msg *Message) error
 }
 
 type Subscriber interface {

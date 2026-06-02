@@ -1,6 +1,7 @@
 package clients
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -151,4 +152,37 @@ func Request(req *http.Request) (data []byte, headers http.Header, httpCode int,
 
 func ParseResponse[T any](data []byte, dest *T) error {
 	return json.Unmarshal(data, dest)
+}
+
+func AnyToBody(data any) (io.ReadCloser, error) {
+	switch v := data.(type) {
+	case string:
+		return strToBody(v), nil
+	case []byte:
+		return bytesToBody(v), nil
+	case io.Reader:
+		// 如果本身是Reader，包一层NopCloser
+		return io.NopCloser(v), nil
+	default:
+		// 其余全部json序列化
+		return anyToJsonBody(data)
+	}
+}
+
+// []byte 转 body
+func bytesToBody(b []byte) io.ReadCloser {
+	return io.NopCloser(bytes.NewBuffer(b))
+}
+
+// string 转 body
+func strToBody(s string) io.ReadCloser {
+	return io.NopCloser(bytes.NewBufferString(s))
+}
+
+func anyToJsonBody(data any) (io.ReadCloser, error) {
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	return io.NopCloser(bytes.NewBuffer(b)), nil
 }

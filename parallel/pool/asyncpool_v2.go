@@ -23,9 +23,9 @@ type AsyncPoolV2 struct {
 	allTasksCount *int64
 }
 
-func NewAsyncPoolV2(maxWorkers int32, queueSize int) (*AsyncPoolV2, error) {
+func NewAsyncPoolV2(maxWorkers int32, queueSize int) *AsyncPoolV2 {
 	if maxWorkers < 0 || queueSize < 0 {
-		return nil, fmt.Errorf("maxWorkekrs or queueSize < 0")
+		return nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -37,7 +37,7 @@ func NewAsyncPoolV2(maxWorkers int32, queueSize int) (*AsyncPoolV2, error) {
 		ctx:           ctx,
 		cancelFn:      cancel,
 		allTasksCount: new(int64),
-	}, nil
+	}
 }
 
 func (ts *AsyncPoolV2) Shutdown() {
@@ -93,7 +93,6 @@ func (ts *AsyncPoolV2) work(ctx context.Context, task TaskWithCtx, onError OnErr
 	err := ts.execTask(mergedCtx, task, onError)
 	cancel()
 	ts.updateStatsAtomicly(err)
-	
 
 	for {
 		select {

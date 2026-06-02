@@ -3,11 +3,14 @@ package mq
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/leoheung/go-patterns/container/list"
 	"github.com/leoheung/go-patterns/container/safemap"
+	"github.com/leoheung/go-patterns/net/clients"
 	"github.com/leoheung/go-patterns/parallel/pool"
 	"github.com/leoheung/go-patterns/parallel/stream"
+	"github.com/leoheung/go-patterns/utils"
 )
 
 var _ MQ = (*ClusterMQ)(nil)
@@ -21,10 +24,11 @@ type ClusterMQ struct {
 	msgs        chan *Message
 	subscribers *safemap.ShardedMap[topic, []*subscriber]
 	wokerpool   *pool.AsyncPoolV2
+	httpClient  *clients.SharedHTTPClient
 }
 
-func NewClusterMQ(msg_buffer int) *ClusterMQ {
-	if msg_buffer < 0 {
+func NewClusterMQ(msg_buffer_size, num_workers, job_queue_size, shardCount int) *ClusterMQ {
+	if msg_buffer_size < 0 || num_workers < 0 || job_queue_size < 0 || shardCount < 0 {
 		return nil
 	}
 
@@ -32,23 +36,63 @@ func NewClusterMQ(msg_buffer int) *ClusterMQ {
 	ret := ClusterMQ{
 		root_ctx:        ctx,
 		root_ctx_cancel: cancel,
-		msgs:            make(chan *Message, msg_buffer),
-		subscribers:     safemap.NewShardedMap[topic, []*subscriber](32),
+		msgs:            make(chan *Message, msg_buffer_size),
+		subscribers:     safemap.NewShardedMap[topic, []*subscriber](shardCount),
+		httpClient:      clients.NewDefaultSharedHTTPClient(),
+		wokerpool:       pool.NewAsyncPoolV2(int32(num_workers), job_queue_size),
 	}
 
-	pipeline := stream.NewPipeline(ret.root_ctx.Done(), ret.msgs)
+	go stream.NewPipeline[*Message](ret.root_ctx.Done(), ret.msgs).
+		ForEach(func(m *Message) {
+			ret.Broadcast(ret.root_ctx, m)
+		})
 
 	return &ret
 }
 
 // Send implements [MQ].
-func (c *ClusterMQ) Send(ctx context.Context, url string, msg Message) {
-	panic("unimplemented")
+func (c *ClusterMQ) Send(ctx context.Context, sub *subscriber, msg *Message) error {
+	sub.mu.Lock()
+	defer sub.mu.Unlock()
+
+	payload, err := clients.AnyToBody(msg)
+	if err != nil {
+		return fmt.Errorf("failed to jsonlize the message: %s", err.Error())
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", sub.callback_url, payload)
+
+	if err != nil {
+		return fmt.Errorf("failed to create a request: %s", err.Error())
+	}
+
+	_, _, code, err := c.httpClient.Request(req)
+	if err != nil {
+		return fmt.Errorf("failed to send notification request to subscriber: %w", err)
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("[%d] failed to send notification request to subscriber", code)
+	}
+
+	return nil
 }
 
 // Broadcast implements [MQ].
-func (c *ClusterMQ) Broadcast(ctx context.Context, topic string, msg Message) error {
-	panic("unimplemented")
+func (c *ClusterMQ) Broadcast(ctx context.Context, msg *Message) error {
+	subs, ok := c.subscribers.Get(msg.Topic)
+	if ok && len(subs) > 0 {
+		for _, s := range subs {
+			job := func(ctx context.Context) error {
+				return c.Send(ctx, s, msg)
+			}
+			//todo: add onError
+			err := c.wokerpool.AsyncSubmit(c.root_ctx, job, nil)
+			if err != nil {
+				utils.DevLogError(fmt.Sprintf("failed to submit notifiying task into the pool: %s for message id: %s", err.Error(), msg.ID))
+			}
+		}
+	}
+	return nil
 }
 
 // Close implements [MQ].
@@ -58,13 +102,13 @@ func (c *ClusterMQ) Close(ctx context.Context) error {
 }
 
 // Publish implements [MQ].
-func (c *ClusterMQ) Publish(ctx context.Context, msg Message) error {
+func (c *ClusterMQ) Publish(ctx context.Context, msg *Message) error {
 	select {
 	case <-c.root_ctx.Done():
 		return fmt.Errorf("MQ closed")
 	case <-ctx.Done():
 		return fmt.Errorf("context done")
-	case c.msgs <- &msg:
+	case c.msgs <- msg:
 		return nil
 	default:
 		return fmt.Errorf("msg buffer is full")
