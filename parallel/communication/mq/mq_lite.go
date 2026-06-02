@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	"github.com/leoheung/go-patterns/container/list"
 	"github.com/leoheung/go-patterns/container/safemap"
@@ -15,31 +16,38 @@ import (
 	"github.com/leoheung/go-patterns/utils"
 )
 
-var _ MQ = new(ClusterMQ)
+var _ MQ = new(MQLite)
 
 type topic = string
 
-type ClusterMQ struct {
+type retryStruct struct {
+	sub *subscriber
+	msg *Message
+}
+
+type MQLite struct {
 	root_ctx        context.Context
 	root_ctx_cancel context.CancelFunc
 
 	msgs        chan *Message
+	retry_ch    chan *retryStruct
 	subscribers *safemap.ShardedMap[topic, []*subscriber]
 	wokerpool   *pool.AsyncPoolV2
 	httpClient  *clients.SharedHTTPClient
 	msg_count   *int64
 }
 
-func NewClusterMQ(msg_buffer_size, num_workers, job_queue_size, shardCount int) *ClusterMQ {
+func NewMQLite(msg_buffer_size, num_workers, job_queue_size, shardCount int) *MQLite {
 	if msg_buffer_size < 0 || num_workers < 0 || job_queue_size < 0 || shardCount < 0 {
 		return nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	ret := ClusterMQ{
+	ret := MQLite{
 		root_ctx:        ctx,
 		root_ctx_cancel: cancel,
 		msgs:            make(chan *Message, msg_buffer_size),
+		retry_ch:        make(chan *retryStruct),
 		subscribers:     safemap.NewShardedMap[topic, []*subscriber](shardCount),
 		httpClient:      clients.NewDefaultSharedHTTPClient(),
 		wokerpool:       pool.NewAsyncPoolV2(int32(num_workers), job_queue_size),
@@ -50,12 +58,28 @@ func NewClusterMQ(msg_buffer_size, num_workers, job_queue_size, shardCount int) 
 		ForEach(func(m *Message) {
 			ret.Broadcast(ret.root_ctx, m)
 		})
+	go stream.NewPipeline[*retryStruct](ret.root_ctx.Done(), ret.retry_ch).
+		Buffer(32).
+		Parallel[error](3, func(r *retryStruct) error {
+		for i := range r.sub.maxInflight {
+			if ret.Send(ret.root_ctx, r.sub, r.msg) == nil {
+				return nil
+			}
+			time.Sleep(time.Duration(i+1) * time.Second)
+		}
+		return fmt.Errorf("failed to resend msg %s to subscriber %s after retried %d times", r.msg.ID, r.sub.id, r.sub.maxInflight)
+	}).
+		ForEach(func(e error) {
+			if e != nil {
+				utils.DevLogError(e.Error())
+			}
+		})
 
 	return &ret
 }
 
 // Send implements [MQ].
-func (c *ClusterMQ) Send(ctx context.Context, sub *subscriber, msg *Message) error {
+func (c *MQLite) Send(ctx context.Context, sub *subscriber, msg *Message) error {
 	sub.mu.Lock()
 	defer sub.mu.Unlock()
 
@@ -82,15 +106,22 @@ func (c *ClusterMQ) Send(ctx context.Context, sub *subscriber, msg *Message) err
 }
 
 // Broadcast implements [MQ].
-func (c *ClusterMQ) Broadcast(ctx context.Context, msg *Message) error {
+func (c *MQLite) Broadcast(ctx context.Context, msg *Message) error {
 	subs, ok := c.subscribers.Get(msg.Topic)
 	if ok && len(subs) > 0 {
 		for _, s := range subs {
 			job := func(ctx context.Context) error {
 				return c.Send(ctx, s, msg)
 			}
-			//todo: add onError
-			err := c.wokerpool.AsyncSubmit(c.root_ctx, job, nil)
+
+			onError := func(err error) {
+				c.retry_ch <- &retryStruct{
+					sub: s,
+					msg: msg,
+				}
+			}
+
+			err := c.wokerpool.AsyncSubmit(c.root_ctx, job, onError)
 			if err != nil {
 				utils.DevLogError(fmt.Sprintf("failed to submit notifiying task into the pool: %s for message id: %s", err.Error(), msg.ID))
 			}
@@ -100,13 +131,17 @@ func (c *ClusterMQ) Broadcast(ctx context.Context, msg *Message) error {
 }
 
 // Close implements [MQ].
-func (c *ClusterMQ) Close(ctx context.Context) error {
+func (c *MQLite) Close(ctx context.Context) error {
 	c.root_ctx_cancel()
 	return nil
 }
 
 // Publish implements [MQ].
-func (c *ClusterMQ) Publish(ctx context.Context, msg *Message) (*string, error) {
+func (c *MQLite) Publish(ctx context.Context, msg *Message) (*string, error) {
+	if _, ok := c.subscribers.Get(msg.Topic); !ok {
+		return nil, fmt.Errorf("Message is not published as there are no subscribers to this topic")
+	}
+
 	msg.ID = strconv.FormatInt(atomic.AddInt64(c.msg_count, 1), 10)
 
 	select {
@@ -122,7 +157,7 @@ func (c *ClusterMQ) Publish(ctx context.Context, msg *Message) (*string, error) 
 }
 
 // Subscribe implements [MQ].
-func (c *ClusterMQ) Subscribe(ctx context.Context, topic string, subscriberID string, callbackURL string, maxInflight int) error {
+func (c *MQLite) Subscribe(ctx context.Context, topic string, subscriberID string, callbackURL string, maxInflight int) error {
 	newS := subscriber{
 		id:           subscriberID,
 		callback_url: callbackURL,
@@ -137,7 +172,7 @@ func (c *ClusterMQ) Subscribe(ctx context.Context, topic string, subscriberID st
 }
 
 // Unsubscribe implements [MQ].
-func (c *ClusterMQ) Unsubscribe(ctx context.Context, topic, subscriberID string) error {
+func (c *MQLite) Unsubscribe(ctx context.Context, topic, subscriberID string) error {
 	c.subscribers.Compute(topic, nil, func(s []*subscriber) []*subscriber {
 		return list.From(s).Filter(func(v *subscriber, i int) bool {
 			return v.id != subscriberID
