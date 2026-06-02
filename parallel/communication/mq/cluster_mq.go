@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
+	"sync/atomic"
 
 	"github.com/leoheung/go-patterns/container/list"
 	"github.com/leoheung/go-patterns/container/safemap"
@@ -25,6 +27,7 @@ type ClusterMQ struct {
 	subscribers *safemap.ShardedMap[topic, []*subscriber]
 	wokerpool   *pool.AsyncPoolV2
 	httpClient  *clients.SharedHTTPClient
+	msg_count   *int64
 }
 
 func NewClusterMQ(msg_buffer_size, num_workers, job_queue_size, shardCount int) *ClusterMQ {
@@ -40,6 +43,7 @@ func NewClusterMQ(msg_buffer_size, num_workers, job_queue_size, shardCount int) 
 		subscribers:     safemap.NewShardedMap[topic, []*subscriber](shardCount),
 		httpClient:      clients.NewDefaultSharedHTTPClient(),
 		wokerpool:       pool.NewAsyncPoolV2(int32(num_workers), job_queue_size),
+		msg_count:       new(int64),
 	}
 
 	go stream.NewPipeline[*Message](ret.root_ctx.Done(), ret.msgs).
@@ -102,16 +106,18 @@ func (c *ClusterMQ) Close(ctx context.Context) error {
 }
 
 // Publish implements [MQ].
-func (c *ClusterMQ) Publish(ctx context.Context, msg *Message) error {
+func (c *ClusterMQ) Publish(ctx context.Context, msg *Message) (*string, error) {
+	msg.ID = strconv.FormatInt(atomic.AddInt64(c.msg_count, 1), 10)
+
 	select {
 	case <-c.root_ctx.Done():
-		return fmt.Errorf("MQ closed")
+		return nil, fmt.Errorf("MQ closed")
 	case <-ctx.Done():
-		return fmt.Errorf("context done")
+		return nil, fmt.Errorf("context done")
 	case c.msgs <- msg:
-		return nil
+		return &msg.ID, nil
 	default:
-		return fmt.Errorf("msg buffer is full")
+		return nil, fmt.Errorf("msg buffer is full")
 	}
 }
 
