@@ -54,21 +54,21 @@ func NewMQLite(msg_buffer_size, num_workers, job_queue_size, shardCount int) *MQ
 		msg_count:       new(int64),
 	}
 
-	go stream.NewPipeline[*Message](ret.root_ctx.Done(), ret.msgs).
+	go stream.NewPipeline(ret.root_ctx.Done(), ret.msgs).
 		ForEach(func(m *Message) {
 			ret.Broadcast(ret.root_ctx, m)
 		})
-	go stream.NewPipeline[*retryStruct](ret.root_ctx.Done(), ret.retry_ch).
+	go stream.NewPipeline(ret.root_ctx.Done(), ret.retry_ch).
 		Buffer(32).
-		Parallel[error](3, func(r *retryStruct) error {
-		for i := range r.sub.maxInflight {
-			if ret.Send(ret.root_ctx, r.sub, r.msg) == nil {
-				return nil
+		Parallel(3, func(r *retryStruct) error {
+			for i := range r.sub.maxInflight {
+				if ret.Send(ret.root_ctx, r.sub, r.msg) == nil {
+					return nil
+				}
+				time.Sleep(time.Duration(i+1) * time.Second)
 			}
-			time.Sleep(time.Duration(i+1) * time.Second)
-		}
-		return fmt.Errorf("failed to resend msg %s to subscriber %s after retried %d times", r.msg.ID, r.sub.id, r.sub.maxInflight)
-	}).
+			return fmt.Errorf("failed to resend msg %s to subscriber %s after retried %d times", r.msg.ID, r.sub.id, r.sub.maxInflight)
+		}).
 		ForEach(func(e error) {
 			if e != nil {
 				utils.DevLogError(e.Error())
