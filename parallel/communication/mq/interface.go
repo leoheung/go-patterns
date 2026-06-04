@@ -15,7 +15,7 @@ type MessageHeader struct {
 }
 
 type Message struct {
-	ID      string        `json:"string"`
+	ID      string        `json:"id"`
 	Topic   string        `json:"topic"`
 	Payload []byte        `json:"payload"`
 	Headers MessageHeader `json:"headers"`
