@@ -178,6 +178,14 @@ func (l *List[T]) Pop() (T, bool) {
 	return last, true
 }
 
+func (l *List[T]) Peek() (T, bool) {
+	if l.Len() == 0 {
+		var zero T
+		return zero, false
+	}
+	return l.data[len(l.data)-1], true
+}
+
 // Insert 在指定位置插入元素，支持负索引。
 func (l *List[T]) Insert(i int, v T) {
 	// Insert 前位置，支持负索引（-1 表示末尾前，即与 Python 行为一致）
