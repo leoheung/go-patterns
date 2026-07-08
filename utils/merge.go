@@ -24,12 +24,13 @@ func MergeContexts(ctx1, ctx2 context.Context) (context.Context, context.CancelF
 
 	ctx, cancel := context.WithCancel(ctx1)
 
+	// defines a hook function `stop`: after ctx2 is done, cancel ctx
 	stop := context.AfterFunc(ctx2, func() {
 		cancel()
 	})
 
 	return ctx, func() {
-		stop()
+		stop() // applies the hook
 		cancel()
 	}
 }
