@@ -91,7 +91,7 @@ func (gt *RenewableContext[T]) Reactivate(timeout *time.Duration) error {
 	}
 }
 
-func (gt *RenewableContext[T]) OnReactivate() <-chan struct{} {
+func (gt *RenewableContext[T]) SubscribeReactivation() <-chan struct{} {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
 
