@@ -1,4 +1,4 @@
-package safelist
+package safeslice
 
 import "sync"
 

@@ -15,7 +15,7 @@ type SlidingWindowLimiter struct {
 	buckets       *safemap.ShardedMap[int, *int64]
 	start_time    time.Time     // 值类型，不用指针
 	quit_ch       chan struct{} // 用 struct{} 比 emptyT 更惯用
-	keys          *safelist.SafeSlice[int]
+	keys          *safeslice.SafeSlice[int]
 }
 
 func NewSlidingWindowLimiter(frequency_hz, buckets_count int) (*SlidingWindowLimiter, error) {
@@ -29,7 +29,7 @@ func NewSlidingWindowLimiter(frequency_hz, buckets_count int) (*SlidingWindowLim
 		buckets:       safemap.NewShardedMap[int, *int64](buckets_count),
 		start_time:    time.Now(),
 		quit_ch:       make(chan struct{}),
-		keys:          safelist.NewSafeSlice[int](0, 0),
+		keys:          safeslice.NewSafeSlice[int](0, 0),
 	}
 
 	go ret.cron_clean()
