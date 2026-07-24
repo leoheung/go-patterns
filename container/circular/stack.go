@@ -9,16 +9,31 @@ import (
 	"github.com/leoheung/go-patterns/utils"
 )
 
+
+// CircularStack is a fixed-capacity, last-in-first-out (LIFO/FILO) buffer for
+// producer/consumer scenarios where a producer pushes data at a high frequency
+// while a consumer reads the latest item more slowly.
+//
+// With a plain stack, a fast producer and a slow consumer cause unbounded
+// growth. CircularStack bounds memory by fixing its size: once full, every new
+// Push overwrites the oldest element and advances the top pointer, so the buffer
+// always retains at most `size` of the most recently pushed items.
+//
+// Consumers subscribe to change notifications and retrieve the newest value via
+// Peek or Pop. The stack can be paused and resumed: pausing stops notifications
+// and terminates the background notification goroutine, while resuming restarts
+// it.
 type CircularStack[T any] struct {
 	subscribers   *safeslice.SafeSlice[chan struct{}]
 	cs            []T
 	ctx           *lctx.RenewableContext[any]
 	mu            sync.RWMutex
 	top_idx       int
+	count         int
 	notify_buffer chan struct{}
 }
 
-func NewCircularStack[T any](size int, buffer_size int) *CircularStack[T] {
+func NewCircularStack[T any](size int) *CircularStack[T] {
 	if size <= 0 {
 		size = 1
 	}
@@ -28,6 +43,7 @@ func NewCircularStack[T any](size int, buffer_size int) *CircularStack[T] {
 		ctx:           lctx.NewRenewableContext[any](nil, nil),
 		cs:            make([]T, size),
 		top_idx:       -1,
+		count:         0,
 		mu:            sync.RWMutex{},
 		notify_buffer: make(chan struct{}, 1),
 	}
@@ -38,32 +54,36 @@ func NewCircularStack[T any](size int, buffer_size int) *CircularStack[T] {
 }
 
 func (cs *CircularStack[T]) notify() {
-	resume_ch := cs.ctx.SubscribeReactivation()
-
 	for {
-		_, paused := utils.TryDequeue(cs.ctx.Done())
-		if paused {
-			<-resume_ch
+		select {
+		case <-cs.ctx.Done():
+			return
+
+		case <-cs.notify_buffer:
+			cs.subscribers.Range(func(index int, item chan struct{}) bool {
+				utils.TryEnqueue(item, struct{}{})
+				return true
+			})
 		}
-
-		<-cs.notify_buffer
-
-		cs.subscribers.Range(func(index int, item chan struct{}) bool {
-			utils.TryEnqueue(item, struct{}{})
-			return true
-		})
-
 	}
 }
 
-func (cs *CircularStack[T]) Push(data T) {
+func (cs *CircularStack[T]) Push(data T) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	cs.top_idx = (cs.top_idx + 1) % len(cs.cs)
+	if !cs.ctx.IsAlive() {
+		return fmt.Errorf("CircularStack is paused")
+	}
+
+	cs.top_idx = utils.ModEuclid((cs.top_idx + 1), len(cs.cs))
 	cs.cs[cs.top_idx] = data
+	if cs.count < len(cs.cs) {
+		cs.count++
+	}
 
 	utils.TryEnqueue(cs.notify_buffer, struct{}{})
+	return nil
 }
 
 func (cs *CircularStack[T]) Peek() (T, error) {
@@ -71,7 +91,7 @@ func (cs *CircularStack[T]) Peek() (T, error) {
 	defer cs.mu.RUnlock()
 
 	var zero T
-	if cs.top_idx == -1 {
+	if cs.count == 0 {
 		return zero, fmt.Errorf("CircularStack is empty")
 	}
 
@@ -83,12 +103,17 @@ func (cs *CircularStack[T]) Pop() (T, error) {
 	defer cs.mu.Unlock()
 
 	var zero T
-	if cs.top_idx == -1 {
+	if !cs.ctx.IsAlive() {
+		return zero, fmt.Errorf("CircularStack is paused")
+	}
+
+	if cs.count == 0 {
 		return zero, fmt.Errorf("CircularStack is empty")
 	}
 
 	ret := cs.cs[cs.top_idx]
-	cs.top_idx = (cs.top_idx - 1) % len(cs.cs)
+	cs.top_idx = utils.ModEuclid((cs.top_idx - 1), len(cs.cs))
+	cs.count--
 	return ret, nil
 }
 
@@ -97,12 +122,18 @@ func (v *CircularStack[T]) Pause() {
 }
 
 func (v *CircularStack[T]) Resume() error {
-	return v.ctx.Reactivate(nil)
+	err := v.ctx.Reactivate(nil)
+	if err != nil {
+		return err
+	}
+
+	go v.notify()
+	return nil
 }
 
 func (v *CircularStack[T]) Subscribe(buffer int) (<-chan struct{}, func(), error) {
 	if !v.ctx.IsAlive() {
-		return nil, nil, fmt.Errorf("ValueProvider is paused")
+		return nil, nil, fmt.Errorf("CircularStack is paused")
 	}
 
 	if buffer < 0 {
