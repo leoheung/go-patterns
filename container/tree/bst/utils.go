@@ -147,16 +147,14 @@ func RotateRight[T any](p BSTNodeInterface[T]) BSTNodeInterface[T] {
 	return l
 }
 
-func Get[T any](p BSTNodeInterface[T], item T) (T, bool) {
-	var zero T
-
+func Get[T any](p BSTNodeInterface[T], item T) (BSTNodeInterface[T], bool) {
 	if p == nil {
-		return zero, false
+		return nil, false
 	}
 
 	cmpFn := p.CompareFn()
 	if cmpFn(p.GetVal(), item) == 0 {
-		return p.GetVal(), true
+		return p, true
 	}
 
 	if cmpFn(p.GetVal(), item) < 0 {
