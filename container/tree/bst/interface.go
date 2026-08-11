@@ -43,10 +43,10 @@ type BSTNodeInterface[T any] interface {
 	GetSize() int
 	SetSize(int)
 
-	// Compare 用节点自身持有的比较器对 a, b 做三态比较:
+	// CompareFn 用节点自身持有的比较器对 a, b 做三态比较:
 	//   -1 表示 a < b;0 表示 a == b;1 表示 a > b。
 	// 不可变性:比较器在节点生命周期内不得替换。
-	Compare(a, b T) int
+	CompareFn() func(a, b T) int
 }
 
 var _ BSTNodeInterface[int] = new(Node[int])
@@ -117,7 +117,7 @@ func (n *Node[T]) SetParent(b BSTNodeInterface[T]) {
 func (n *Node[T]) GetSize() int  { return n.size }
 func (n *Node[T]) SetSize(s int) { n.size = s }
 
-func (n *Node[T]) Compare(a, b T) int { return n.cmp(a, b) }
+func (n *Node[T]) CompareFn() func(a, b T) int { return n.cmp }
 
 type SelfBalancingBST[T any] interface {
 
