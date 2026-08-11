@@ -104,6 +104,14 @@ func (t *Treap[T]) Successor(item T) (T, bool) {
 	panic("unimplemented")
 }
 
+// refreshSizeUp 自 n 起沿父链向上逐个调用 bst.UpdateSize,回填子树 size。
+func refreshSizeUp[T any](n *treapNode[T]) {
+	for n != nil {
+		bst.UpdateSize(n)
+		n = n.parentNode()
+	}
+}
+
 func delete_rec[T any](p *treapNode[T], rootPtr **treapNode[T]) bool {
 	if p == nil {
 		return false
@@ -116,41 +124,46 @@ func delete_rec[T any](p *treapNode[T], rootPtr **treapNode[T]) bool {
 
 	// case 1: leaf
 	if pl == nil && pr == nil {
-		if !isRoot {
+		if isRoot {
+			*rootPtr = nil
+		} else {
 			if bst.IsLeftChild(pp, p) {
 				pp.SetLeft(nil)
 			} else {
 				pp.SetRight(nil)
 			}
-		} else {
-			*rootPtr = nil
+			refreshSizeUp(pp)
 		}
 		return true
 	}
 
 	// case 2: only 1 child
 	if pl != nil && pr == nil {
-		if !isRoot {
+		if isRoot {
+			pl.SetParent(nil)
+			*rootPtr = pl
+		} else {
 			if bst.IsLeftChild(pp, p) {
 				pp.SetLeft(pl)
 			} else {
 				pp.SetRight(pl)
 			}
 			pl.SetParent(pp)
-		} else {
-			*rootPtr = pl
+			refreshSizeUp(pp)
 		}
 		return true
 	} else if pl == nil && pr != nil {
-		if !isRoot {
+		if isRoot {
+			pr.SetParent(nil)
+			*rootPtr = pr
+		} else {
 			if bst.IsLeftChild(pp, p) {
 				pp.SetLeft(pr)
 			} else {
 				pp.SetRight(pr)
 			}
 			pr.SetParent(pp)
-		} else {
-			*rootPtr = pr
+			refreshSizeUp(pp)
 		}
 		return true
 	} else {

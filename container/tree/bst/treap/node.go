@@ -18,6 +18,23 @@ func new_treap_node[T any](val T, cmp func(a, b T) int) *treapNode[T] {
 	}
 }
 
-func (n *treapNode[T]) leftNode() *treapNode[T]   { return n.GetLeft().(*treapNode[T]) }
-func (n *treapNode[T]) rightNode() *treapNode[T]  { return n.GetRight().(*treapNode[T]) }
-func (n *treapNode[T]) parentNode() *treapNode[T] { return n.GetParent().(*treapNode[T]) }
+func (n *treapNode[T]) leftNode() *treapNode[T] {
+	if l := n.GetLeft(); l != nil {
+		return l.(*treapNode[T])
+	}
+	return nil
+}
+
+func (n *treapNode[T]) rightNode() *treapNode[T] {
+	if r := n.GetRight(); r != nil {
+		return r.(*treapNode[T])
+	}
+	return nil
+}
+
+func (n *treapNode[T]) parentNode() *treapNode[T] {
+	if pp := n.GetParent(); pp != nil {
+		return pp.(*treapNode[T])
+	}
+	return nil
+}
