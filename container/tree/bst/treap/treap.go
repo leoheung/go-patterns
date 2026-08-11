@@ -1,15 +1,8 @@
 package treap
 
 import (
-	"math/rand/v2"
-
 	"github.com/leoheung/go-patterns/container/tree/bst"
 )
-
-type treapNode[T any] struct {
-	*bst.Node[T] // 嵌入指针,所有 BSTNodeInterface method 会被 method promotion 提升到 *treapNode[T]
-	priority     int
-}
 
 type Treap[T any] struct {
 	root *treapNode[T]
@@ -17,13 +10,6 @@ type Treap[T any] struct {
 }
 
 var _ bst.SelfBalancingBST[int] = new(Treap[int])
-
-func new_treap_node[T any](val T, cmp func(a, b T) int) *treapNode[T] {
-	return &treapNode[T]{
-		bst.NewNode(val, cmp),
-		rand.Int(),
-	}
-}
 
 func NewTreap[T any](cmp func(a, b T) int) *Treap[T] {
 	return &Treap[T]{
@@ -43,6 +29,7 @@ func (t *Treap[T]) Delete(item T) bool {
 	if !ok {
 		return false
 	}
+	return delete_rec(ptr.(*treapNode[T]), &t.root)
 }
 
 // Get implements [bst.SelfBalancingBST].
@@ -122,9 +109,9 @@ func delete_rec[T any](p *treapNode[T], rootPtr **treapNode[T]) bool {
 		return false
 	}
 
-	pp := p.GetParent()
-	pl := p.GetLeft()
-	pr := p.GetRight()
+	pp := p.parentNode()
+	pl := p.leftNode()
+	pr := p.rightNode()
 	isRoot := pp == nil
 
 	// case 1: leaf
@@ -151,8 +138,35 @@ func delete_rec[T any](p *treapNode[T], rootPtr **treapNode[T]) bool {
 			}
 			pl.SetParent(pp)
 		} else {
-			*rootPtr  // todo: 如何优雅的把root 设置为 pl?
+			*rootPtr = pl
 		}
 		return true
+	} else if pl == nil && pr != nil {
+		if !isRoot {
+			if bst.IsLeftChild(pp, p) {
+				pp.SetLeft(pr)
+			} else {
+				pp.SetRight(pr)
+			}
+			pr.SetParent(pp)
+		} else {
+			*rootPtr = pr
+		}
+		return true
+	} else {
+		// case 3: 2 children
+		if pl.priority >= pr.priority {
+			bst.RotateRight(p)
+			if isRoot {
+				*rootPtr = pl
+			}
+			return delete_rec(p,rootPtr)
+		} else {
+			bst.RotateLeft(p)
+			if isRoot {
+				*rootPtr = pr
+			}
+			return delete_rec(p,rootPtr)
+		}
 	}
 }
