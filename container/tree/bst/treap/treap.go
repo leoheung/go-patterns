@@ -98,6 +98,31 @@ func (t *Treap[T]) Insert(item T) {
 	reorganize_by_priority(n, &t.root)
 }
 
+// Update 定位与 item 相等的节点，调用 callback 修改内容，随后按需重排。
+// 仅当修改后不再满足 BST 有序不变量时才删除并重新插入。
+func (t *Treap[T]) Update(item T, callback func(item T)) {
+	ptr, ok := bst.Get(t.root, item)
+	if !ok {
+		return // 不存在则不回调、不新增
+	}
+	tn, _ := ptr.(*treapNode[T])
+	if tn == nil {
+		return
+	}
+	callback(tn.GetVal())
+
+	// 完整检测：parent + 左孩子 + 右孩子 三处 BST 有序不变量
+	if bst.IsOrderedNode(tn) {
+		return // 仍有序，免重排
+	}
+	// 乱序：按节点引用删除 + 重新插入（Insert 内部会 reorganize_by_priority）。
+	// 注意不能用 Delete(item) 重新定位：callback 已改变 item 的排序键，
+	// 树仍按旧键组织，按新键搜索无法命中该节点。
+	val := tn.GetVal()
+	delete_rec(tn, &t.root)
+	t.Insert(val)
+}
+
 // RangeVisit 闭区间 [low, high] 升序遍历；调用方需保证 low ≤ high。
 func (t *Treap[T]) RangeVisit(low T, high T, callback func(T)) {
 	bst.RangeVisit(t.root, low, high, callback)

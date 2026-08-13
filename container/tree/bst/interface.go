@@ -145,6 +145,11 @@ func (n *Node[T]) parentNode() *Node[T] {
 	return nil
 }
 
+// BST 有序约定（所有实现/工具必须一致）：
+//   - 对任意节点 n，左子树任意节点 l 满足 cmp(n, l) >= 0（允许相等）；
+//   - 右子树任意节点 r 满足 cmp(n, r) < 0（严格小于）。
+//   - 相等元素允许共存，且插入时走左子树。
+// 实现者（Insert/Delete/Update/Get 等）必须遵守此约定，否则破坏有序不变量。
 type SelfBalancingBST[T any] interface {
 
 	// Insert
@@ -159,6 +164,20 @@ type SelfBalancingBST[T any] interface {
 	// 1. 记录一批 key 相同但 value 不同的日志/事件，全部保留不覆盖；
 	// 2. 多重集(multiset)语义的有序容器。
 	Insert(item T)
+
+	// Update
+	// 功能：定位与 item「相等」的节点（按 cmp 判定），调用 callback 修改其内容后，
+	// 自动检测排序键是否变化并重新调整位置，使树保持有序。
+	//  - item 用样板（同 cmp 语义）定位；典型 T 为指针，cmp 先比较指针身份。
+	//  - callback 修改节点内容（如改变参与 cmp 的字段）。
+	//  - 若修改后排序键变化（不再满足 BST 有序不变量），实现需将节点移到正确位置。
+	//  - 若树中不存在与 item 相等的节点，本方法无副作用（不回调、不新增）。
+	//
+	//
+	// 示例场景：
+	// 1. 排行榜：玩家得分更新后，重新按新得分排序；
+	// 2. 调度器：任务的触发时间更新后，重新入队。
+	Update(item T, callback func(item T))
 
 	// Get
 	// 功能：传入样板item，查找树中和它相等的结点；返回存储的原始元素以及是否命中

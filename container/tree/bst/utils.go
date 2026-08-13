@@ -379,17 +379,54 @@ func RangeVisit[T any](p BSTNodeInterface[T], low, high T, fn func(T)) {
 	}
 }
 
+// IsOrderedNode 检查节点 n 是否仍满足 BST 有序不变量。
+// 必须与 BST 有序约定一致：左子树 n >= l（允许相等）、右子树 n < r（严格）。
+// 需同时验证 n 与 parent、n 与左孩子、n 与右孩子 三处关系。
+func IsOrderedNode[T any](n BSTNodeInterface[T]) bool {
+	if nodeIsNil(n) {
+		return true
+	}
+	cmp := n.CompareFn()
+	// 1) 与父节点
+	if pp := n.GetParent(); pp != nil {
+		if IsLeftChild(pp, n) {
+			// n 是左孩子：须满足 pp >= n；pp < n 则乱
+			if cmp(pp.GetVal(), n.GetVal()) < 0 {
+				return false
+			}
+		} else {
+			// n 是右孩子：须满足 n > pp（严格）；n <= pp 则乱
+			if cmp(n.GetVal(), pp.GetVal()) <= 0 {
+				return false
+			}
+		}
+	}
+	// 2) 与左孩子：须满足 n >= l；n < l 则乱
+	if l := n.GetLeft(); l != nil {
+		if cmp(n.GetVal(), l.GetVal()) < 0 {
+			return false
+		}
+	}
+	// 3) 与右孩子：须满足 n < r；n >= r 则乱
+	if r := n.GetRight(); r != nil {
+		if cmp(n.GetVal(), r.GetVal()) >= 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // DrawTree 以横向树形图输出以 p 为根的子树：
 // 左右子树分列两侧，父节点在上，用 / \ 斜线连接，直观展示树的层级与左右分支。
 // 仅打印节点值，不涉及任何实现特有的附加字段（如 priority/color）。
 //
 // 输出示例：
 //
-//	      50
-//	    /    \
-//	   30     70
-//	  /  \   /  \
-//	 20  40 60  80
+//	     50
+//	   /    \
+//	  30     70
+//	 /  \   /  \
+//	20  40 60  80
 func DrawTree[T any](p BSTNodeInterface[T], out io.Writer) {
 	if nodeIsNil(p) {
 		return
