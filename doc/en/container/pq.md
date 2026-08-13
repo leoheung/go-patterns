@@ -13,9 +13,9 @@ import "github.com/leoheung/go-patterns/container/pq"
 ### Create a Queue
 
 ```go
-// Create a new priority queue with specified capacity and comparison function
+// Create a new priority queue with a comparison function (no capacity limit)
 // better(a, b) returns true if a should come before b
-pq, err := pq.NewPriorityQueue[int](10, func(a, b int) bool { return a < b })
+pq, err := pq.NewPriorityQueue[int](func(a, b int) bool { return a < b })
 ```
 
 ### Basic Operations
@@ -104,7 +104,7 @@ func main() {
     }
 
     // 2. Using the Priority Queue
-    queue, _ := pq.NewPriorityQueue[string](5, func(a, b string) bool {
+    queue, _ := pq.NewPriorityQueue[string](func(a, b string) bool {
         return len(a) < len(b) // Shortest string first
     })
 

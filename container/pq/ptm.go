@@ -62,7 +62,7 @@ type PriorityScheduledTaskManager struct {
 // 构造函数不再需要类型参数
 func NewPriorityScheduledTaskManager() (*PriorityScheduledTaskManager, error) {
 	// 比较逻辑改为比较内部结构体的 runAt
-	pq, err := NewPriorityQueue(0, func(a, b *scheduledTask) bool {
+	pq, err := NewPriorityQueue(func(a, b *scheduledTask) bool {
 		return a.RunAt.Before(b.RunAt)
 	})
 	if err != nil {
@@ -236,7 +236,7 @@ func (ptm *PriorityScheduledTaskManager) GetAllTasks() []scheduledTask {
 	defer ptm.mu.Unlock()
 
 	// 复制内部数据为值副本，避免泄露内部状态
-	src := ptm.pq.data // type: []*scheduledTask
+	src := ptm.pq.Data() // type: []*scheduledTask
 	out := make([]scheduledTask, len(src))
 	for i, p := range src {
 		if p != nil {

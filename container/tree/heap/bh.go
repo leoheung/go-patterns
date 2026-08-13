@@ -61,6 +61,13 @@ func (h *BinaryHeap[T]) Peek() (T, bool) {
 	return h.data[0], true
 }
 
+// Slice 返回底层元素的副本（无序，仅用于遍历/查看），不修改堆。
+func (h *BinaryHeap[T]) Slice() []T {
+	out := make([]T, len(h.data))
+	copy(out, h.data)
+	return out
+}
+
 // up 上浮下标 j 的元素，维持堆性质。
 func (h *BinaryHeap[T]) up(j int) {
 	for {

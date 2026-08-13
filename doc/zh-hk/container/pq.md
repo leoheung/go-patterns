@@ -13,9 +13,9 @@ import "github.com/leoheung/go-patterns/container/pq"
 ### 建立隊列
 
 ```go
-// 以指定容量及比較函數建立新的優先隊列
+// 以比較函數建立新的優先隊列（無容量限制）
 // better(a, b) 若 a 應排在 b 之前則返回 true
-pq, err := pq.NewPriorityQueue[int](10, func(a, b int) bool { return a < b })
+pq, err := pq.NewPriorityQueue[int](func(a, b int) bool { return a < b })
 ```
 
 ### 基本操作
@@ -104,7 +104,7 @@ func main() {
     }
 
     // 2. 使用優先隊列
-    queue, _ := pq.NewPriorityQueue[string](5, func(a, b string) bool {
+    queue, _ := pq.NewPriorityQueue[string](func(a, b string) bool {
         return len(a) < len(b) // 短字符串優先
     })
 
