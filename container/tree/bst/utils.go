@@ -356,8 +356,10 @@ func RangeVisit[T any](p BSTNodeInterface[T], low, high T, fn func(T)) {
 	cmp := p.CompareFn()
 	val := p.GetVal()
 
-	// 若当前节点 > low，左子树可能存在 ≥ low 的节点，需向左搜索
-	if cmp(low, val) < 0 {
+	// 向左剪枝：仅当 val >= low 时，左子树才可能存在 ≥ low 的节点。
+	// 注意用 <= 0 而非 < 0：相等元素允许共存且都挂在左侧，val == low 时
+	// 左子树仍可能有等于 low 的重复节点，必须继续向左搜索。
+	if cmp(low, val) <= 0 {
 		RangeVisit(p.GetLeft(), low, high, fn)
 	}
 
@@ -366,8 +368,9 @@ func RangeVisit[T any](p BSTNodeInterface[T], low, high T, fn func(T)) {
 		fn(val)
 	}
 
-	// 若当前节点 < high，右子树可能存在 ≤ high 的节点，需向右搜索
-	if cmp(val, high) < 0 {
+	// 向右剪枝：仅当 val <= high 时，右子树才可能存在 ≤ high 的节点。
+	// 对称地，val == high 时右子树仍可能有等于 high 的重复节点，需继续向右搜索。
+	if cmp(val, high) <= 0 {
 		RangeVisit(p.GetRight(), low, high, fn)
 	}
 }
