@@ -74,9 +74,16 @@ func (t *Treap[T]) Predecessor(item T) (T, bool) {
 	panic("unimplemented")
 }
 
-// Put implements [bst.SelfBalancingBST].
-func (t *Treap[T]) Put(item T) (inserted bool) {
-	panic("unimplemented")
+// Insert 按 BST 规则定位插入位置，用 new_treap_node 创建带 priority 的节点，
+// 挂接后沿父链刷新 size，再经 reorganize_by_priority 上浮维护 treap 堆性质。
+func (t *Treap[T]) Insert(item T) {
+	n := new_treap_node(item, t.cmp)
+	if t.root == nil {
+		t.root = n
+		return
+	}
+	insert_rec(t.root, n)
+	reorganize_by_priority(n, &t.root)
 }
 
 // RangeVisit implements [bst.SelfBalancingBST].
@@ -107,14 +114,6 @@ func (t *Treap[T]) Successor(item T) (T, bool) {
 	panic("unimplemented")
 }
 
-// refreshSizeUp 自 n 起沿父链向上逐个调用 bst.UpdateSize,回填子树 size。
-func refreshSizeUp[T any](n *treapNode[T]) {
-	for n != nil {
-		bst.UpdateSize(n)
-		n = n.parentNode()
-	}
-}
-
 func delete_rec[T any](p *treapNode[T], rootPtr **treapNode[T]) bool {
 	if p == nil {
 		return false
@@ -135,7 +134,7 @@ func delete_rec[T any](p *treapNode[T], rootPtr **treapNode[T]) bool {
 			} else {
 				pp.SetRight(nil)
 			}
-			refreshSizeUp(pp)
+			bst.RefreshSizeUp(pp)
 		}
 		return true
 	}
@@ -152,7 +151,7 @@ func delete_rec[T any](p *treapNode[T], rootPtr **treapNode[T]) bool {
 				pp.SetRight(pl)
 			}
 			pl.SetParent(pp)
-			refreshSizeUp(pp)
+			bst.RefreshSizeUp(pp)
 		}
 		return true
 	} else if pl == nil && pr != nil {
@@ -166,7 +165,7 @@ func delete_rec[T any](p *treapNode[T], rootPtr **treapNode[T]) bool {
 				pp.SetRight(pr)
 			}
 			pr.SetParent(pp)
-			refreshSizeUp(pp)
+			bst.RefreshSizeUp(pp)
 		}
 		return true
 	} else {
@@ -199,15 +198,34 @@ func reorganize_by_priority[T any](p *treapNode[T], rootPtr **treapNode[T]) {
 
 	isLeftChild := bst.IsLeftChild(pp, p)
 
-	if pp.priority >= p.priority {
-		return
-	} else {
+	if pp.priority < p.priority {
 		if isLeftChild {
 			bst.RotateRight(pp)
-			reorganize_by_priority(p,rootPtr)
+			reorganize_by_priority(p, rootPtr)
 		} else {
 			bst.RotateLeft(pp)
-			reorganize_by_priority(p,rootPtr)
+			reorganize_by_priority(p, rootPtr)
+		}
+	}
+}
+
+// insert_rec 把新节点 nn 挂到以 cur 为根的子树中；相等元素走左，允许重复共存。
+func insert_rec[T any](cur, nn *treapNode[T]) {
+	if cur.CompareFn()(cur.GetVal(), nn.GetVal()) >= 0 {
+		if cur.leftNode() == nil {
+			cur.SetLeft(nn)
+			nn.SetParent(cur)
+			bst.RefreshSizeUp(cur)
+		} else {
+			insert_rec(cur.leftNode(), nn)
+		}
+	} else {
+		if cur.rightNode() == nil {
+			cur.SetRight(nn)
+			nn.SetParent(cur)
+			bst.RefreshSizeUp(cur)
+		} else {
+			insert_rec(cur.rightNode(), nn)
 		}
 	}
 }

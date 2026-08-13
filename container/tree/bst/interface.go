@@ -1,5 +1,7 @@
 package bst
 
+type CMPFN[T any] = func(a, b T) int
+
 // BSTNodeInterface[T] 是「BST 节点」行为的最小契约,供同包内 SelfBalancingBST 的实现使用。
 // 实现者(treap / splay / avl / ...)自行决定具体结构体,只要满足下列不变量:
 //
@@ -119,19 +121,42 @@ func (n *Node[T]) SetSize(s int) { n.size = s }
 
 func (n *Node[T]) CompareFn() func(a, b T) int { return n.cmp }
 
+
+func (n *Node[T]) leftNode() *Node[T] {
+	if l := n.GetLeft(); l != nil {
+		return l.(*Node[T])
+	}
+	return nil
+}
+
+func (n *Node[T]) rightNode() *Node[T] {
+	if r := n.GetRight(); r != nil {
+		return r.(*Node[T])
+	}
+	return nil
+}
+
+func (n *Node[T]) parentNode() *Node[T] {
+	if pp := n.GetParent(); pp != nil {
+		return pp.(*Node[T])
+	}
+	return nil
+}
+
 type SelfBalancingBST[T any] interface {
 
-	// Put
-	// 功能：插入或者更新结点。
-	// 当树内已经存在和 item 相等的元素，则覆盖旧元素；不存在则新增
+	// Insert
+	// 功能：插入结点。当树内已经存在和 item 相等的元素时，不覆盖旧元素，
+	// 而是把 item 作为一个新节点添加进树中（允许重复元素共存）。
 	// 平衡树内部自动执行对应的平衡维护(旋转 / splay / 重建 / treap 堆调整等)
-	// 返回值:true = 新增节点;false = 覆盖已有节点(树中已存在等价元素)
+	// 返回值：恒为 true（始终新增一个节点）。
+	//
+	// 重复元素策略：相等元素(cmp == 0)允许共存，不覆盖。
 	//
 	// 示例场景：
-	// 1. 往有序用户树存入 User 结构体，年龄作为排序依据；
-	// 2. 更新已经存在用户的附属字段；
-	// 3. 定时任务把待触发的任务结构体放进基于触发时间排序的平衡树。
-	Put(item T) (inserted bool)
+	// 1. 记录一批 key 相同但 value 不同的日志/事件，全部保留不覆盖；
+	// 2. 多重集(multiset)语义的有序容器。
+	Insert(item T)
 
 	// Get
 	// 功能：传入样板item，查找树中和它相等的结点；返回存储的原始元素以及是否命中

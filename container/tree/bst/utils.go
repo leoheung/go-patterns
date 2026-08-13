@@ -2,7 +2,7 @@ package bst
 
 // 工具:判断 child 是否为 parent 的左孩子
 func IsLeftChild[T any](parent, child BSTNodeInterface[T]) bool {
-	if parent == nil{
+	if parent == nil {
 		return false
 	}
 	return parent.GetLeft() == child
@@ -164,5 +164,35 @@ func Get[T any](p BSTNodeInterface[T], item T) (BSTNodeInterface[T], bool) {
 		return Get(p.GetRight(), item)
 	} else {
 		return Get(p.GetLeft(), item)
+	}
+}
+
+func Insert[T any](p *Node[T], pp *Node[T], left bool, item T, cmp CMPFN[T]) *Node[T] {
+	if p == nil {
+		ret := NewNode(item, cmp)
+		if pp == nil {
+			return ret
+		}
+		if left {
+			pp.SetLeft(ret)
+		} else {
+			pp.SetRight(ret)
+		}
+		ret.SetParent(pp)
+		RefreshSizeUp(pp)
+		return ret
+	}
+
+	if cmp(p.val, item) >= 0 {
+		return Insert(p.leftNode(), p, true, item, cmp)
+	}
+	return Insert(p.rightNode(), p, false, item, cmp)
+}
+
+// RefreshSizeUp 自 n 起沿父链向上逐个调用 bst.UpdateSize,回填子树 size。
+func RefreshSizeUp[T any](n BSTNodeInterface[T]) {
+	for n != nil {
+		UpdateSize(n)
+		n = n.GetParent()
 	}
 }
