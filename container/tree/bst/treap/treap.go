@@ -96,7 +96,10 @@ func (t *Treap[T]) Select(rank int) (T, bool) {
 
 // Size implements [bst.SelfBalancingBST].
 func (t *Treap[T]) Size() int {
-	panic("unimplemented")
+	if t.root == nil {
+		return 0
+	}
+	return t.root.GetSize()
 }
 
 // Successor implements [bst.SelfBalancingBST].
@@ -173,13 +176,38 @@ func delete_rec[T any](p *treapNode[T], rootPtr **treapNode[T]) bool {
 			if isRoot {
 				*rootPtr = pl
 			}
-			return delete_rec(p,rootPtr)
+			return delete_rec(p, rootPtr)
 		} else {
 			bst.RotateLeft(p)
 			if isRoot {
 				*rootPtr = pr
 			}
-			return delete_rec(p,rootPtr)
+			return delete_rec(p, rootPtr)
+		}
+	}
+}
+
+func reorganize_by_priority[T any](p *treapNode[T], rootPtr **treapNode[T]) {
+	if p == nil {
+		return
+	}
+	pp := p.parentNode()
+	if pp == nil {
+		*rootPtr = p
+		return
+	}
+
+	isLeftChild := bst.IsLeftChild(pp, p)
+
+	if pp.priority >= p.priority {
+		return
+	} else {
+		if isLeftChild {
+			bst.RotateRight(pp)
+			reorganize_by_priority(p,rootPtr)
+		} else {
+			bst.RotateLeft(pp)
+			reorganize_by_priority(p,rootPtr)
 		}
 	}
 }

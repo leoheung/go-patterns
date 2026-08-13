@@ -2,6 +2,9 @@ package bst
 
 // 工具:判断 child 是否为 parent 的左孩子
 func IsLeftChild[T any](parent, child BSTNodeInterface[T]) bool {
+	if parent == nil{
+		return false
+	}
 	return parent.GetLeft() == child
 }
 
