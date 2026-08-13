@@ -96,9 +96,9 @@ func (t *Treap[T]) Insert(item T) {
 	reorganize_by_priority(n, &t.root)
 }
 
-// RangeVisit implements [bst.SelfBalancingBST].
+// RangeVisit 闭区间 [low, high] 升序遍历；调用方需保证 low ≤ high。
 func (t *Treap[T]) RangeVisit(low T, high T, callback func(T)) {
-	panic("unimplemented")
+	bst.RangeVisit(t.root, low, high, callback)
 }
 
 // Rank 返回严格小于 item 的元素个数（0-based）。

@@ -328,3 +328,29 @@ func Select[T any](p BSTNodeInterface[T], rank int) (T, bool) {
 	}
 	return zero, false
 }
+
+// RangeVisit 闭区间 [low, high] 升序遍历以 p 为根的子树：
+// 对所有 low ≤ x ≤ high（按节点比较器判定）的元素调用 fn，升序触发。
+// 调用方需保证 low ≤ high，否则行为未定义。
+func RangeVisit[T any](p BSTNodeInterface[T], low, high T, fn func(T)) {
+	if p == nil {
+		return
+	}
+	cmp := p.CompareFn()
+	val := p.GetVal()
+
+	// 若当前节点 > low，左子树可能存在 ≥ low 的节点，需向左搜索
+	if cmp(low, val) < 0 {
+		RangeVisit(p.GetLeft(), low, high, fn)
+	}
+
+	// 当前节点落在 [low, high] 内才触发
+	if cmp(low, val) <= 0 && cmp(val, high) <= 0 {
+		fn(val)
+	}
+
+	// 若当前节点 < high，右子树可能存在 ≤ high 的节点，需向右搜索
+	if cmp(val, high) < 0 {
+		RangeVisit(p.GetRight(), low, high, fn)
+	}
+}
