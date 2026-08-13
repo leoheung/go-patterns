@@ -101,14 +101,14 @@ func (t *Treap[T]) RangeVisit(low T, high T, callback func(T)) {
 	panic("unimplemented")
 }
 
-// Rank implements [bst.SelfBalancingBST].
+// Rank 返回严格小于 item 的元素个数（0-based）。
 func (t *Treap[T]) Rank(item T) int {
-	panic("unimplemented")
+	return bst.Rank(t.root, item)
 }
 
-// Select implements [bst.SelfBalancingBST].
+// Select 返回第 rank 小（0-based）元素；越界返回 (zero, false)。
 func (t *Treap[T]) Select(rank int) (T, bool) {
-	panic("unimplemented")
+	return bst.Select(t.root, rank)
 }
 
 // Size implements [bst.SelfBalancingBST].

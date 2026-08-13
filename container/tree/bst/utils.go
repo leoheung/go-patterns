@@ -288,3 +288,43 @@ func Successor[T any](p BSTNodeInterface[T], item T) (T, bool) {
 	}
 	return succ.GetVal(), true
 }
+
+// Rank 返回以 p 为根的子树中严格小于 item 的元素个数（0-based）。
+func Rank[T any](p BSTNodeInterface[T], item T) int {
+	var count int
+	for p != nil {
+		if p.CompareFn()(p.GetVal(), item) < 0 {
+			// 当前节点 < item：计入当前节点 + 其左子树
+			count++
+			if l := p.GetLeft(); l != nil {
+				count += l.GetSize()
+			}
+			p = p.GetRight()
+		} else {
+			// 当前节点 >= item：不计入，向左
+			p = p.GetLeft()
+		}
+	}
+	return count
+}
+
+// Select 返回以 p 为根的子树中第 rank 小（0-based）的元素；rank 越界返回 (zero, false)。
+func Select[T any](p BSTNodeInterface[T], rank int) (T, bool) {
+	var zero T
+	for p != nil {
+		lsz := 0
+		if l := p.GetLeft(); l != nil {
+			lsz = l.GetSize()
+		}
+		switch {
+		case rank < lsz:
+			p = p.GetLeft()
+		case rank == lsz:
+			return p.GetVal(), true
+		default: // rank > lsz
+			rank -= lsz + 1
+			p = p.GetRight()
+		}
+	}
+	return zero, false
+}
