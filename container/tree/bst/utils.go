@@ -250,3 +250,41 @@ func Max[T any](p BSTNodeInterface[T]) (T, bool) {
 	}
 	return p.GetVal(), true
 }
+
+// Predecessor 返回以 p 为根的子树中严格小于 item 的最大元素。
+// p 为 nil 或不存在这样的前驱时返回 (zero, false)。
+func Predecessor[T any](p BSTNodeInterface[T], item T) (T, bool) {
+	var zero T
+	var pred BSTNodeInterface[T]
+	for p != nil {
+		if p.CompareFn()(p.GetVal(), item) < 0 {
+			pred = p
+			p = p.GetRight()
+		} else {
+			p = p.GetLeft()
+		}
+	}
+	if pred == nil {
+		return zero, false
+	}
+	return pred.GetVal(), true
+}
+
+// Successor 返回以 p 为根的子树中严格大于 item 的最小元素。
+// p 为 nil 或不存在这样的后继时返回 (zero, false)。
+func Successor[T any](p BSTNodeInterface[T], item T) (T, bool) {
+	var zero T
+	var succ BSTNodeInterface[T]
+	for p != nil {
+		if p.CompareFn()(p.GetVal(), item) > 0 {
+			succ = p
+			p = p.GetLeft()
+		} else {
+			p = p.GetRight()
+		}
+	}
+	if succ == nil {
+		return zero, false
+	}
+	return succ.GetVal(), true
+}

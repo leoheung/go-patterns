@@ -79,9 +79,9 @@ func (t *Treap[T]) Min() (T, bool) {
 	return bst.Min(t.root)
 }
 
-// Predecessor implements [bst.SelfBalancingBST].
+// Predecessor 返回严格小于 item 的最大元素；不存在时返回 (zero, false)。
 func (t *Treap[T]) Predecessor(item T) (T, bool) {
-	panic("unimplemented")
+	return bst.Predecessor(t.root, item)
 }
 
 // Insert 按 BST 规则定位插入位置，用 new_treap_node 创建带 priority 的节点，
@@ -119,9 +119,9 @@ func (t *Treap[T]) Size() int {
 	return t.root.GetSize()
 }
 
-// Successor implements [bst.SelfBalancingBST].
+// Successor 返回严格大于 item 的最小元素；不存在时返回 (zero, false)。
 func (t *Treap[T]) Successor(item T) (T, bool) {
-	panic("unimplemented")
+	return bst.Successor(t.root, item)
 }
 
 func delete_rec[T any](p *treapNode[T], rootPtr **treapNode[T]) bool {
