@@ -44,9 +44,19 @@ func (t *Treap[T]) Get(item T) (T, bool) {
 	}
 }
 
-// InOrderTraverse implements [bst.SelfBalancingBST].
+// InOrderTraverse 中序遍历，按 cmp 升序对每个元素调用 fn。
 func (t *Treap[T]) InOrderTraverse(fn func(T)) {
-	panic("unimplemented")
+	bst.InOrderTraverse(t.root, fn)
+}
+
+// PreorderTraverse 前序遍历。
+func (t *Treap[T]) PreorderTraverse(fn func(T)) {
+	bst.PreorderTraverse(t.root, fn)
+}
+
+// PostorderTraverse 后序遍历。
+func (t *Treap[T]) PostorderTraverse(fn func(T)) {
+	bst.PostorderTraverse(t.root, fn)
 }
 
 // IsEmpty implements [bst.SelfBalancingBST].
@@ -59,14 +69,14 @@ func (t *Treap[T]) IsLessThan() func(a T, b T) int {
 	return t.cmp
 }
 
-// Max implements [bst.SelfBalancingBST].
+// Max 返回树中最大元素；空树返回 (zero, false)。
 func (t *Treap[T]) Max() (T, bool) {
-	panic("unimplemented")
+	return bst.Max(t.root)
 }
 
-// Min implements [bst.SelfBalancingBST].
+// Min 返回树中最小元素；空树返回 (zero, false)。
 func (t *Treap[T]) Min() (T, bool) {
-	panic("unimplemented")
+	return bst.Min(t.root)
 }
 
 // Predecessor implements [bst.SelfBalancingBST].

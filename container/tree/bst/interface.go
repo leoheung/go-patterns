@@ -214,6 +214,24 @@ type SelfBalancingBST[T any] interface {
 	// 3. 迭代所有待执行任务依次处理。
 	InOrderTraverse(fn func(T))
 
+	// PreorderTraverse
+	// 前序遍历：先访问当前节点，再遍历左子树、右子树。
+	// 回调 fn 接收每一个访问到的元素；回调内禁止修改树结构。
+	//
+	// 示例场景：
+	// 1. 深拷贝树的节点结构（先父后子）；
+	// 2. 按前缀顺序导出/序列化结构数据。
+	PreorderTraverse(fn func(T))
+
+	// PostorderTraverse
+	// 后序遍历：先遍历左子树、右子树，最后访问当前节点。
+	// 回调 fn 接收每一个访问到的元素；回调内禁止修改树结构。
+	//
+	// 示例场景：
+	// 1. 自底向上计算/回收（子先于父）；
+	// 2. 删除整棵树时先处理子树再处理父节点。
+	PostorderTraverse(fn func(T))
+
 	// Min
 	// 获取排序序列当中排在首位、IsLessThan 判断为最小的元素
 	// 返回 (zero‑value, false) 当树为空

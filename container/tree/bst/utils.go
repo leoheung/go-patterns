@@ -196,3 +196,57 @@ func RefreshSizeUp[T any](n BSTNodeInterface[T]) {
 		n = n.GetParent()
 	}
 }
+
+// InOrderTraverse 中序遍历以 p 为根的子树，按节点比较器升序对每个元素调用 fn。
+func InOrderTraverse[T any](p BSTNodeInterface[T], fn func(T)) {
+	if p == nil {
+		return
+	}
+	InOrderTraverse(p.GetLeft(), fn)
+	fn(p.GetVal())
+	InOrderTraverse(p.GetRight(), fn)
+}
+
+// PreorderTraverse 前序遍历以 p 为根的子树：先访问当前节点，再左、再右。
+func PreorderTraverse[T any](p BSTNodeInterface[T], fn func(T)) {
+	if p == nil {
+		return
+	}
+	fn(p.GetVal())
+	PreorderTraverse(p.GetLeft(), fn)
+	PreorderTraverse(p.GetRight(), fn)
+}
+
+// PostorderTraverse 后序遍历以 p 为根的子树：先左、再右，最后访问当前节点。
+func PostorderTraverse[T any](p BSTNodeInterface[T], fn func(T)) {
+	if p == nil {
+		return
+	}
+	PostorderTraverse(p.GetLeft(), fn)
+	PostorderTraverse(p.GetRight(), fn)
+	fn(p.GetVal())
+}
+
+// Min 返回以 p 为根子树的最小元素；p 为 nil 时返回 (zero, false)。
+func Min[T any](p BSTNodeInterface[T]) (T, bool) {
+	if p == nil {
+		var zero T
+		return zero, false
+	}
+	for p.GetLeft() != nil {
+		p = p.GetLeft()
+	}
+	return p.GetVal(), true
+}
+
+// Max 返回以 p 为根子树的最大元素；p 为 nil 时返回 (zero, false)。
+func Max[T any](p BSTNodeInterface[T]) (T, bool) {
+	if p == nil {
+		var zero T
+		return zero, false
+	}
+	for p.GetRight() != nil {
+		p = p.GetRight()
+	}
+	return p.GetVal(), true
+}
