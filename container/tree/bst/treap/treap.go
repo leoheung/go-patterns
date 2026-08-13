@@ -1,6 +1,8 @@
 package treap
 
 import (
+	"io"
+
 	"github.com/leoheung/go-patterns/container/tree/bst"
 )
 
@@ -238,4 +240,9 @@ func insert_rec[T any](cur, nn *treapNode[T]) {
 			insert_rec(cur.rightNode(), nn)
 		}
 	}
+}
+
+// DrawTree 把整棵树以带缩进的树形文本输出到 out（仅打印节点值，用于观察结构）。
+func (t *Treap[T]) DrawTree(out io.Writer) {
+	bst.DrawTree(t.root, out)
 }

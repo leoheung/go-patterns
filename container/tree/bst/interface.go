@@ -1,5 +1,7 @@
 package bst
 
+import "io"
+
 type CMPFN[T any] = func(a, b T) int
 
 // BSTNodeInterface[T] 是「BST 节点」行为的最小契约,供同包内 SelfBalancingBST 的实现使用。
@@ -334,4 +336,14 @@ type SelfBalancingBST[T any] interface {
 	// 1. 外部代码需要按照和平衡树一模一样的逻辑对比两个结构体；
 	// 2. 多个平衡树之间保证比较器统一。
 	IsLessThan() func(a, b T) int
+
+	// DrawTree
+	// 把整棵树以带缩进的树形文本输出到 out（先序：父 → 左 → 右），仅打印节点值。
+	// 用于观察树的结构；不输出实现特有的附加字段（如 priority/color）。
+	// 空树不输出任何内容。
+	//
+	// 示例场景：
+	// 1. 调试平衡树插入/删除后的结构；
+	// 2. demo 中每步操作后打印整棵树。
+	DrawTree(out io.Writer)
 }

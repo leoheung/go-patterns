@@ -1,6 +1,10 @@
 package bst
 
-import "reflect"
+import (
+	"fmt"
+	"io"
+	"reflect"
+)
 
 // nodeIsNil 判断 p 是否为空：既包括 nil 接口，也包括「typed nil」接口
 // （接口类型非 nil、但其包裹的具体指针为 nil，如 *treapNode(nil) 作为
@@ -373,4 +377,164 @@ func RangeVisit[T any](p BSTNodeInterface[T], low, high T, fn func(T)) {
 	if cmp(val, high) <= 0 {
 		RangeVisit(p.GetRight(), low, high, fn)
 	}
+}
+
+// DrawTree 以横向树形图输出以 p 为根的子树：
+// 左右子树分列两侧，父节点在上，用 / \ 斜线连接，直观展示树的层级与左右分支。
+// 仅打印节点值，不涉及任何实现特有的附加字段（如 priority/color）。
+//
+// 输出示例：
+//
+//	      50
+//	    /    \
+//	   30     70
+//	  /  \   /  \
+//	 20  40 60  80
+func DrawTree[T any](p BSTNodeInterface[T], out io.Writer) {
+	if nodeIsNil(p) {
+		return
+	}
+	lines, rootIdx := renderSub(p)
+	// 把整棵树平移，使根文本居中于输出宽度，避免左分支被挤到边缘。
+	totalW := maxLineLen(lines)
+	pad := (totalW - (2*rootIdx + 1)) / 2 // 让根中心接近 totalW/2
+	if pad < 2 {
+		pad = 2 // 至少保留左边距
+	}
+	for _, l := range lines {
+		fmt.Fprintln(out, padRight(spaces(pad)+l, totalW+pad))
+	}
+}
+
+// renderSub 返回以 n 为根子树的横向文本行（每行等宽）以及根文本中心所在列。
+// 父节点文本中心放在左、右孩子根中心的中点；单孩子时放在孩子根中心。
+// 该算法保证每个父节点严格居中于左右分支之间。
+func renderSub[T any](n BSTNodeInterface[T]) ([]string, int) {
+	val := fmt.Sprint(n.GetVal())
+	vlen := len(val)
+	l := n.GetLeft()
+	r := n.GetRight()
+	hasL := !nodeIsNil(l)
+	hasR := !nodeIsNil(r)
+
+	if !hasL && !hasR {
+		line := spaces(vlen/2) + val // 根居中，行宽 vlen
+		return []string{line}, vlen / 2
+	}
+
+	// 递归渲染左右子树
+	var leftLines, rightLines []string
+	var leftIdx, rightIdx int
+	if hasL {
+		leftLines, leftIdx = renderSub(l)
+	}
+	if hasR {
+		rightLines, rightIdx = renderSub(r)
+	}
+
+	leftW := 0
+	if hasL {
+		leftW = maxLineLen(leftLines)
+	}
+	rightW := 0
+	if hasR {
+		rightW = maxLineLen(rightLines)
+	}
+
+	gap := 2 // 左右子树最小间隔（加大以拉开水平跨度，斜线更清晰）
+	// 左右子树根中心在拼接后坐标系的绝对列
+	absL := leftIdx
+	absR := leftW + gap + rightIdx
+	totalW := leftW + gap + rightW
+
+	// 父中心：
+	//  - 双孩子：取两中心中点（父居中于两分支）
+	//  - 单左孩子：父偏向右侧，使左分支斜向左下
+	//  - 单右孩子：父偏向左侧，使右分支斜向右下
+	rootIdx := absL
+	switch {
+	case hasL && hasR:
+		rootIdx = (absL + absR) / 2
+	case hasL:
+		// 单左孩子：父在左孩子右上方，偏移半个 gap 以拉出斜线
+		rootIdx = absL + gap
+	case hasR:
+		// 单右孩子：父在右孩子左上方
+		rootIdx = absR - gap
+	}
+
+	// 父文本起点，使中心落在 rootIdx
+	mid := rootIdx - vlen/2
+	if mid < 0 {
+		mid = 0
+	}
+	// 保证总宽容纳父文本
+	if m := mid + vlen; m > totalW {
+		totalW = m
+	}
+
+	// 拼接 body
+	rows := maxLen(len(leftLines), len(rightLines))
+	body := make([]string, 0, rows+2)
+	for i := 0; i < rows; i++ {
+		var lseg, rseg string
+		if hasL && i < len(leftLines) {
+			lseg = leftLines[i]
+		}
+		if hasR && i < len(rightLines) {
+			rseg = rightLines[i]
+		}
+		body = append(body, padRight(lseg, leftW)+spaces(gap)+padRight(rseg, rightW))
+	}
+
+	// 连接行：仅对实际存在的孩子画斜线
+	conn := make([]byte, totalW)
+	for i := range conn {
+		conn[i] = ' '
+	}
+	if hasL && absL >= 0 && absL < totalW {
+		conn[absL] = '/'
+	}
+	if hasR && absR >= 0 && absR < totalW {
+		conn[absR] = '\\'
+	}
+
+	parentLine := padRight(spaces(mid)+val, totalW)
+	connect := []string{parentLine, string(conn)}
+
+	out := append(connect, body...)
+	return out, rootIdx
+}
+
+// maxLineLen 返回 lines 中最长一行的字节长度。
+func maxLineLen(lines []string) int {
+	m := 0
+	for _, l := range lines {
+		if len(l) > m {
+			m = len(l)
+		}
+	}
+	return m
+}
+
+func maxLen(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func padRight(s string, w int) string {
+	for len(s) < w {
+		s += " "
+	}
+	return s
+}
+
+func spaces(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = ' '
+	}
+	return string(b)
 }
