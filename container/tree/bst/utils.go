@@ -1,5 +1,22 @@
 package bst
 
+import "reflect"
+
+// nodeIsNil 判断 p 是否为空：既包括 nil 接口，也包括「typed nil」接口
+// （接口类型非 nil、但其包裹的具体指针为 nil，如 *treapNode(nil) 作为
+// BSTNodeInterface 传入）。后者用 p == nil 无法识别，会引发 nil 指针解引用。
+func nodeIsNil[T any](p BSTNodeInterface[T]) bool {
+	if p == nil {
+		return true
+	}
+	rv := reflect.ValueOf(p)
+	switch rv.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return rv.IsNil()
+	}
+	return false
+}
+
 // 工具:判断 child 是否为 parent 的左孩子
 func IsLeftChild[T any](parent, child BSTNodeInterface[T]) bool {
 	if parent == nil {
@@ -151,7 +168,7 @@ func RotateRight[T any](p BSTNodeInterface[T]) BSTNodeInterface[T] {
 }
 
 func Get[T any](p BSTNodeInterface[T], item T) (BSTNodeInterface[T], bool) {
-	if p == nil {
+	if nodeIsNil(p) {
 		return nil, false
 	}
 
@@ -199,7 +216,7 @@ func RefreshSizeUp[T any](n BSTNodeInterface[T]) {
 
 // InOrderTraverse 中序遍历以 p 为根的子树，按节点比较器升序对每个元素调用 fn。
 func InOrderTraverse[T any](p BSTNodeInterface[T], fn func(T)) {
-	if p == nil {
+	if nodeIsNil(p) {
 		return
 	}
 	InOrderTraverse(p.GetLeft(), fn)
@@ -209,7 +226,7 @@ func InOrderTraverse[T any](p BSTNodeInterface[T], fn func(T)) {
 
 // PreorderTraverse 前序遍历以 p 为根的子树：先访问当前节点，再左、再右。
 func PreorderTraverse[T any](p BSTNodeInterface[T], fn func(T)) {
-	if p == nil {
+	if nodeIsNil(p) {
 		return
 	}
 	fn(p.GetVal())
@@ -219,7 +236,7 @@ func PreorderTraverse[T any](p BSTNodeInterface[T], fn func(T)) {
 
 // PostorderTraverse 后序遍历以 p 为根的子树：先左、再右，最后访问当前节点。
 func PostorderTraverse[T any](p BSTNodeInterface[T], fn func(T)) {
-	if p == nil {
+	if nodeIsNil(p) {
 		return
 	}
 	PostorderTraverse(p.GetLeft(), fn)
@@ -229,7 +246,7 @@ func PostorderTraverse[T any](p BSTNodeInterface[T], fn func(T)) {
 
 // Min 返回以 p 为根子树的最小元素；p 为 nil 时返回 (zero, false)。
 func Min[T any](p BSTNodeInterface[T]) (T, bool) {
-	if p == nil {
+	if nodeIsNil(p) {
 		var zero T
 		return zero, false
 	}
@@ -241,7 +258,7 @@ func Min[T any](p BSTNodeInterface[T]) (T, bool) {
 
 // Max 返回以 p 为根子树的最大元素；p 为 nil 时返回 (zero, false)。
 func Max[T any](p BSTNodeInterface[T]) (T, bool) {
-	if p == nil {
+	if nodeIsNil(p) {
 		var zero T
 		return zero, false
 	}
@@ -256,7 +273,7 @@ func Max[T any](p BSTNodeInterface[T]) (T, bool) {
 func Predecessor[T any](p BSTNodeInterface[T], item T) (T, bool) {
 	var zero T
 	var pred BSTNodeInterface[T]
-	for p != nil {
+	for !nodeIsNil(p) {
 		if p.CompareFn()(p.GetVal(), item) < 0 {
 			pred = p
 			p = p.GetRight()
@@ -275,7 +292,7 @@ func Predecessor[T any](p BSTNodeInterface[T], item T) (T, bool) {
 func Successor[T any](p BSTNodeInterface[T], item T) (T, bool) {
 	var zero T
 	var succ BSTNodeInterface[T]
-	for p != nil {
+	for !nodeIsNil(p) {
 		if p.CompareFn()(p.GetVal(), item) > 0 {
 			succ = p
 			p = p.GetLeft()
@@ -292,7 +309,7 @@ func Successor[T any](p BSTNodeInterface[T], item T) (T, bool) {
 // Rank 返回以 p 为根的子树中严格小于 item 的元素个数（0-based）。
 func Rank[T any](p BSTNodeInterface[T], item T) int {
 	var count int
-	for p != nil {
+	for !nodeIsNil(p) {
 		if p.CompareFn()(p.GetVal(), item) < 0 {
 			// 当前节点 < item：计入当前节点 + 其左子树
 			count++
@@ -311,7 +328,7 @@ func Rank[T any](p BSTNodeInterface[T], item T) int {
 // Select 返回以 p 为根的子树中第 rank 小（0-based）的元素；rank 越界返回 (zero, false)。
 func Select[T any](p BSTNodeInterface[T], rank int) (T, bool) {
 	var zero T
-	for p != nil {
+	for !nodeIsNil(p) {
 		lsz := 0
 		if l := p.GetLeft(); l != nil {
 			lsz = l.GetSize()
@@ -333,7 +350,7 @@ func Select[T any](p BSTNodeInterface[T], rank int) (T, bool) {
 // 对所有 low ≤ x ≤ high（按节点比较器判定）的元素调用 fn，升序触发。
 // 调用方需保证 low ≤ high，否则行为未定义。
 func RangeVisit[T any](p BSTNodeInterface[T], low, high T, fn func(T)) {
-	if p == nil {
+	if nodeIsNil(p) {
 		return
 	}
 	cmp := p.CompareFn()
