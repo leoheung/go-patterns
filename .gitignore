@@ -35,3 +35,4 @@ doc/.vitepress/dist/
 doc/.vitepress/cache/
 doc/package-lock.json
 *.sh
+main.go
