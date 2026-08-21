@@ -9,6 +9,8 @@
 *.dylib
 *_test.go
 
+*.sh
+
 .trae
 
 # Test binary, built with `go test -c`

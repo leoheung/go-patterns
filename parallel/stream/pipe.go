@@ -7,8 +7,8 @@ import "sync"
 // ═══════════════════════════════════════════════════════
 
 // Pipeline 流式管道，any 为当前流经的数据类型
-type Pipeline struct {
-	ch   chan any        // 当前阶段的输出通道
+type Pipeline[I any] struct {
+	ch   chan I          // 当前阶段的输出通道
 	quit <-chan struct{} // 全局终止信号（内部传播）
 }
 
@@ -22,21 +22,21 @@ type Pipeline struct {
 //	result := p.Transform(...).Run()
 //	in <- 42; close(in)
 
-func NewPipeline(quit_ch <-chan struct{}, input_ch chan any) *Pipeline {
-	return &Pipeline{
+func NewPipeline[I any](quit_ch <-chan struct{}, input_ch chan I) *Pipeline[I] {
+	return &Pipeline[I]{
 		ch:   input_ch,
 		quit: quit_ch,
 	}
 }
 
 // FromSlice 从 slice 创建管道（内部自动推送并关闭）
-func NewPipelineFromSlice(quit_ch <-chan struct{}, items []any) *Pipeline {
-	input_ch := make(chan any, len(items))
+func NewPipelineFromSlice[I any](quit_ch <-chan struct{}, items []I) *Pipeline[I] {
+	input_ch := make(chan I, len(items))
 	for _, v := range items {
 		input_ch <- v
 	}
 	close(input_ch)
-	return &Pipeline{
+	return &Pipeline[I]{
 		ch:   input_ch,
 		quit: quit_ch,
 	}
@@ -51,9 +51,9 @@ func NewPipelineFromSlice(quit_ch <-chan struct{}, items []any) *Pipeline {
 //	From[int](ch).
 //	    Transform(func(x int) string { return strconv.Itoa(x) }).
 //	    Transform(func(s string) int { n, _ := strconv.Atoi(s); return n })
-func (p *Pipeline) Transform(fn func(any) any) *Pipeline {
-	next := Pipeline{
-		ch:   make(chan any),
+func (p *Pipeline[I]) Transform[O any](fn func(I) O) *Pipeline[O] {
+	next := Pipeline[O]{
+		ch:   make(chan O),
 		quit: p.quit,
 	}
 	go func() {
@@ -75,9 +75,9 @@ func (p *Pipeline) Transform(fn func(any) any) *Pipeline {
 }
 
 // FlatMap 一对多展开 any → []any，展平为 Pipeline
-func (p *Pipeline) FlatMap(fn func(any) []any) *Pipeline {
-	next := Pipeline{
-		ch:   make(chan any),
+func (p *Pipeline[I]) FlatMap(fn func(I) []I) *Pipeline[I] {
+	next := Pipeline[I]{
+		ch:   make(chan I),
 		quit: p.quit,
 	}
 	go func() {
@@ -104,10 +104,10 @@ func (p *Pipeline) FlatMap(fn func(any) []any) *Pipeline {
 // ═══════════════════════════════════════════════════════
 
 // Filter 过滤，仅保留满足条件的元素
-func (p *Pipeline) Filter(pred func(any) bool) *Pipeline {
-	next := Pipeline{
+func (p *Pipeline[I]) Filter(pred func(I) bool) *Pipeline[I] {
+	next := Pipeline[I]{
 		quit: p.quit,
-		ch:   make(chan any),
+		ch:   make(chan I),
 	}
 
 	go func() {
@@ -131,10 +131,10 @@ func (p *Pipeline) Filter(pred func(any) bool) *Pipeline {
 }
 
 // Tap 副作用（如日志、metrics），不改变数据，原样传递
-func (p *Pipeline) Tap(fn func(any)) *Pipeline {
-	next := Pipeline{
+func (p *Pipeline[I]) Tap(fn func(any)) *Pipeline[I] {
+	next := Pipeline[I]{
 		quit: p.quit,
-		ch:   make(chan any),
+		ch:   make(chan I),
 	}
 
 	go func() {
@@ -164,15 +164,15 @@ func (p *Pipeline) Tap(fn func(any)) *Pipeline {
 //
 //	trueBranch 走 pred == true 的数据
 //	falseBranch 走 pred == false 的数据
-func (p *Pipeline) Split(pred func(any) bool) (trueBranch, falseBranch *Pipeline) {
-	nextTrue := Pipeline{
+func (p *Pipeline[I]) Split(pred func(any) bool) (trueBranch, falseBranch *Pipeline[I]) {
+	nextTrue := Pipeline[I]{
 		quit: p.quit,
-		ch:   make(chan any),
+		ch:   make(chan I),
 	}
 
-	nextFalse := Pipeline{
+	nextFalse := Pipeline[I]{
 		quit: p.quit,
-		ch:   make(chan any),
+		ch:   make(chan I),
 	}
 
 	go func() {
@@ -199,10 +199,10 @@ func (p *Pipeline) Split(pred func(any) bool) (trueBranch, falseBranch *Pipeline
 }
 
 // Join 合并多个同类型 Pipeline 为一个 (fan in)
-func (p *Pipeline) Join(others ...*Pipeline) *Pipeline {
-	next := Pipeline{
+func (p *Pipeline[I]) Join(others ...*Pipeline[I]) *Pipeline[I] {
+	next := Pipeline[I]{
 		quit: p.quit,
-		ch:   make(chan any),
+		ch:   make(chan I),
 	}
 
 	go func() {
@@ -252,17 +252,17 @@ func (p *Pipeline) Join(others ...*Pipeline) *Pipeline {
 }
 
 // FanIn 合并多个 Pipeline 为一个（与 Join 等价，但接收者不参与）
-func FanIn(quit_ch chan struct{}, pipelines ...*Pipeline) *Pipeline {
+func FanIn[I any](quit_ch chan struct{}, pipelines ...*Pipeline[I]) *Pipeline[I] {
 	if len(pipelines) == 0 {
-		return &Pipeline{
-			ch:   make(chan any),
+		return &Pipeline[I]{
+			ch:   make(chan I),
 			quit: quit_ch,
 		}
 	}
 
-	next := Pipeline{
+	next := Pipeline[I]{
 		quit: quit_ch,
-		ch:   make(chan any),
+		ch:   make(chan I),
 	}
 
 	go func() {
@@ -271,7 +271,7 @@ func FanIn(quit_ch chan struct{}, pipelines ...*Pipeline) *Pipeline {
 		wg.Add(len(pipelines))
 
 		for _, p := range pipelines {
-			go func(pipe *Pipeline) {
+			go func(pipe *Pipeline[I]) {
 				defer wg.Done()
 				for {
 					select {
@@ -296,17 +296,17 @@ func FanIn(quit_ch chan struct{}, pipelines ...*Pipeline) *Pipeline {
 // FanOut 争抢模式：每个 item 只给一个下游（负载均衡）
 //
 //	适合：并行处理，N 个 worker 分担工作量
-func (p *Pipeline) FanOut(n int) []*Pipeline {
-	ret := make([]*Pipeline, 0, n)
+func (p *Pipeline[I]) FanOut(n int) []*Pipeline[I] {
+	ret := make([]*Pipeline[I], 0, n)
 	for range n {
-		ret = append(ret, &Pipeline{
+		ret = append(ret, &Pipeline[I]{
 			quit: p.quit,
-			ch:   make(chan any),
+			ch:   make(chan I),
 		})
 	}
 
 	for _, o := range ret {
-		go func(pipe *Pipeline) {
+		go func(pipe *Pipeline[I]) {
 			defer close(pipe.ch)
 			for {
 				select {
@@ -326,12 +326,12 @@ func (p *Pipeline) FanOut(n int) []*Pipeline {
 }
 
 // 广播：每个 item copy 给所有下游
-func (p *Pipeline) Broadcast(n int) []*Pipeline {
-	ret := make([]*Pipeline, 0, n)
+func (p *Pipeline[I]) Broadcast(n int) []*Pipeline[I] {
+	ret := make([]*Pipeline[I], 0, n)
 	for range n {
-		ret = append(ret, &Pipeline{
+		ret = append(ret, &Pipeline[I]{
 			quit: p.quit,
-			ch:   make(chan any),
+			ch:   make(chan I),
 		})
 	}
 
@@ -362,10 +362,10 @@ func (p *Pipeline) Broadcast(n int) []*Pipeline {
 // Parallel 并行处理：N 个 worker 同时争抢执行 fn，结果自动合并
 //
 //	N 个 goroutine 同时从输入 channel 争抢读取，执行 fn 后写入输出 channel
-func (p *Pipeline) Parallel(n int, fn func(any) any) *Pipeline {
-	next := Pipeline{
+func (p *Pipeline[I]) Parallel[O any](n int, fn func(I) O) *Pipeline[O] {
+	next := Pipeline[O]{
 		quit: p.quit,
-		ch:   make(chan any),
+		ch:   make(chan O),
 	}
 
 	var wg sync.WaitGroup
@@ -404,10 +404,10 @@ func (p *Pipeline) Parallel(n int, fn func(any) any) *Pipeline {
 // ═══════════════════════════════════════════════════════
 
 // Take 仅取前 n 个元素，之后自动终止
-func (p *Pipeline) Take(n int) *Pipeline {
-	next := Pipeline{
+func (p *Pipeline[I]) Take(n int) *Pipeline[I] {
+	next := Pipeline[I]{
 		quit: p.quit,
-		ch:   make(chan any),
+		ch:   make(chan I),
 	}
 
 	go func() {
@@ -429,10 +429,10 @@ func (p *Pipeline) Take(n int) *Pipeline {
 }
 
 // Skip 跳过前 n 个元素
-func (p *Pipeline) Skip(n int) *Pipeline {
-	next := Pipeline{
+func (p *Pipeline[I]) Skip(n int) *Pipeline[I] {
+	next := Pipeline[I]{
 		quit: p.quit,
-		ch:   make(chan any),
+		ch:   make(chan I),
 	}
 
 	go func() {
@@ -467,10 +467,10 @@ func (p *Pipeline) Skip(n int) *Pipeline {
 }
 
 // Buffer 设置输出通道缓冲区大小
-func (p *Pipeline) Buffer(size int) *Pipeline {
-	next := Pipeline{
+func (p *Pipeline[I]) Buffer(size int) *Pipeline[I] {
+	next := Pipeline[I]{
 		quit: p.quit,
-		ch:   make(chan any, size),
+		ch:   make(chan I, size),
 	}
 
 	go func() {
@@ -496,13 +496,13 @@ func (p *Pipeline) Buffer(size int) *Pipeline {
 // ═══════════════════════════════════════════════════════
 
 // Run 启动管道，返回输出通道（用 range 消费）
-func (p *Pipeline) Run() <-chan any {
+func (p *Pipeline[I]) Run() <-chan I {
 	return p.ch
 }
 
 // Collect 消费所有输出，返回 slice（阻塞直到管道结束）
-func (p *Pipeline) Collect() []any {
-	ret := make([]any, 0)
+func (p *Pipeline[I]) Collect() []I {
+	ret := make([]I, 0)
 	for x := range p.ch {
 		ret = append(ret, x)
 	}
@@ -510,7 +510,7 @@ func (p *Pipeline) Collect() []any {
 }
 
 // ForEach 逐个消费输出，执行 fn（阻塞直到管道结束）
-func (p *Pipeline) ForEach(fn func(any)) {
+func (p *Pipeline[I]) ForEach(fn func(I)) {
 	for x := range p.ch {
 		fn(x)
 	}
