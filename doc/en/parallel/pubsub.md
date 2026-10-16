@@ -47,6 +47,22 @@ if err != nil {
 pubsub.Unsubscribe("topic-name", id)
 ```
 
+The subscription channel is closed by the broker — never close it yourself.
+
+### Close a Topic
+
+```go
+// Close all subscriber channels of a topic and remove it
+err := pubsub.Close("topic-name")
+```
+
+### Shutdown
+
+```go
+// Close all subscription channels and tear down the whole system
+pubsub.Shutdown()
+```
+
 ## Complete Example
 
 ```go
@@ -121,7 +137,8 @@ Subscriber 2 received: Breaking: New patterns added!
 
 - **Multiple subscribers**: One-to-many message distribution
 - **Topic-based**: Organize messages by topic
-- **Async delivery**: Non-blocking publish
+- **Async delivery**: Non-blocking publish — messages are dropped when a subscriber's buffer is full
 - **System initialization**: Requires explicit initialization and shutdown
-- **Buffer support**: Configurable buffer size for subscribers
-- **Error handling**: Returns errors for invalid operations
+- **Buffer support**: Configurable buffer size per subscriber (must be `> 0`)
+- **Broker-managed channels**: Subscription channels are closed only by the broker (via `Unsubscribe`, `Close` or `Shutdown`)
+- **Error handling**: Returns errors for invalid operations (e.g. publishing with no subscribers)

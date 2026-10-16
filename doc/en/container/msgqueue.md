@@ -1,54 +1,89 @@
 # Message Queue
 
-A channel-based message queue implementation with basic queue operations.
+::: tip
+The MQ implementation lives in `parallel/communication/mq` (not in `container/`). This page is kept at its original location to avoid breaking links.
+:::
+
+A lightweight topic-based message queue (`MQLite`) that delivers messages to subscribers over HTTP callbacks. It builds on `parallel/stream`, `parallel/pool` and `container/safemap`, and manages its whole lifecycle through an internal `root_ctx`.
 
 ## Installation
 
 ```go
-import "github.com/leoheung/go-patterns/container/msgQueue"
+import "github.com/leoheung/go-patterns/parallel/communication/mq"
 ```
 
 ## API Reference
 
+### Message Structure
+
+```go
+type MessageHeader struct {
+    TraceID   string    `json:"traceID"`
+    Source    string    `json:"source"`
+    EventType string    `json:"eventType"`
+    Timestamp time.Time `json:"timestamp"`
+    Version   string    `json:"version"`
+}
+
+type Message struct {
+    ID      string        `json:"id"`
+    Topic   string        `json:"topic"`
+    Payload []byte        `json:"payload"`
+    Headers MessageHeader `json:"headers"`
+}
+```
+
+`Message.ID` is assigned automatically by `Publish` (monotonically increasing counter).
+
 ### Create a Message Queue
 
 ```go
-// Create a new message queue with specified capacity and device ID
-mq := msgqueue.NewChanMQ(100, "device-1")
+// Create a new MQ with message buffer size, worker count,
+// job queue size and shard count
+q := mq.NewMQLite(100, 4, 64, 16)
 ```
 
-### Enqueue
+All parameters must be `>= 0`, otherwise `nil` is returned.
+
+### Publish
 
 ```go
-// Enqueue a message
-err := mq.Enq([]byte("hello world"))
+// Publish a message to a topic. Returns the assigned message ID.
+id, err := q.Publish(ctx, &mq.Message{
+    Topic:   "orders",
+    Payload: []byte(`{"orderId":"42"}`),
+})
 ```
 
-### Dequeue
+- The topic must have at least one subscriber, otherwise an error is returned.
+- The send is non-blocking: if the message buffer is full, an error is returned immediately.
+
+### Subscribe / Unsubscribe
 
 ```go
-// Dequeue a message with context
-ctx := context.Background()
-msg, err := mq.Deq(ctx)
+// Register a subscriber with an HTTP callback URL and a max retry count
+err := q.Subscribe(ctx, "orders", "sub-1", "http://localhost:8080/callback", 3)
+
+// Remove a subscriber from a topic
+err = q.Unsubscribe(ctx, "orders", "sub-1")
 ```
 
-### Queue Operations
+Delivery is push-based: each message is POSTed as JSON to the subscriber's `callbackURL`.
+
+### Broadcast & Send
 
 ```go
-// Get current queue length
-length := mq.Len()
+// Deliver a message to every subscriber of msg.Topic
+err := q.Broadcast(ctx, msg)
+```
 
-// Clear all messages
-err := mq.Clear()
+`Send(ctx, sub, msg)` posts a single message to one subscriber and is used internally by `Broadcast`. Both are part of the `MQ` interface.
 
-// Check if queue is live
-isLive := mq.IsLive()
+### Close
 
-// Renew a dead queue
-mq.Renew()
-
-// Destroy the queue
-mq.Destroy()
+```go
+// Cancel the internal root_ctx to shut the queue down
+err := q.Close(ctx)
 ```
 
 ## Complete Example
@@ -60,46 +95,44 @@ import (
     "context"
     "fmt"
     "time"
-    "github.com/leoheung/go-patterns/container/msgQueue"
+
+    "github.com/leoheung/go-patterns/parallel/communication/mq"
 )
 
 func main() {
-    // Create a message queue with capacity 10
-    mq := msgqueue.NewChanMQ(10, "test-device")
-    defer mq.Destroy()
+    q := mq.NewMQLite(100, 4, 64, 16)
+    defer q.Close(context.Background())
 
-    // Start a goroutine to consume messages
-    go func() {
-        ctx := context.Background()
-        for i := 0; i < 5; i++ {
-            msg, err := mq.Deq(ctx)
-            if err != nil {
-                fmt.Printf("Error dequeuing: %v\n", err)
-                return
-            }
-            fmt.Printf("Received message: %s\n", string(msg))
-            time.Sleep(500 * time.Millisecond)
-        }
-    }()
-
-    // Enqueue messages
-    for i := 0; i < 5; i++ {
-        msg := fmt.Sprintf("Message %d", i)
-        if err := mq.Enq([]byte(msg)); err != nil {
-            fmt.Printf("Error enqueuing: %v\n", err)
-            return
-        }
-        fmt.Printf("Sent message: %s\n", msg)
+    // Register a subscriber
+    err := q.Subscribe(context.Background(), "orders", "sub-1",
+        "http://localhost:8080/callback", 3)
+    if err != nil {
+        fmt.Printf("subscribe error: %v\n", err)
+        return
     }
 
-    // Wait for all messages to be processed
-    time.Sleep(3 * time.Second)
+    // Publish a message
+    id, err := q.Publish(context.Background(), &mq.Message{
+        Topic:   "orders",
+        Payload: []byte(`{"orderId":"42"}`),
+        Headers: mq.MessageHeader{
+            EventType: "order.created",
+            Timestamp: time.Now(),
+        },
+    })
+    if err != nil {
+        fmt.Printf("publish error: %v\n", err)
+        return
+    }
+    fmt.Printf("published message %s\n", *id)
 }
 ```
 
 ## Features
 
-- **Channel-based**: Built on Go channels for efficient concurrent operations
-- **Context support**: Supports cancellation via context
-- **Lifecycle management**: Create, renew, and destroy queues
-- **Thread-safe**: Safe for concurrent use by multiple goroutines
+- **Topic-based**: subscribers register per topic with an HTTP callback URL
+- **HTTP delivery**: messages are POSTed as JSON to subscriber endpoints
+- **Automatic retry**: failed deliveries are retried up to `maxInflight` times with increasing backoff
+- **Non-blocking publish**: full buffers return an error instead of blocking the producer
+- **Root context lifecycle**: `Close` cancels the internal `root_ctx`, stopping all pipelines
+- **Concurrent delivery**: broadcasts are executed on a `parallel/pool.AsyncPoolV2` worker pool

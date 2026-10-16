@@ -28,6 +28,18 @@
 ### [Channel 操作](./channel.md)
 非阻塞和帶超時的 Channel 操作。
 
+### [Context 合併](./merge.md)
+將兩個 context 合併為一個，任一被取消時即取消。
+
+### [Goroutine 工具](./goroutine.md)
+獲取當前 Goroutine ID，用於除錯及日誌記錄。
+
+### [類型工具](./type.md)
+用於 `any` 值的泛型類型檢查輔助函數。
+
+### [取模工具](./modulo.md)
+歐幾里得取模運算，結果恆為非負數。
+
 ## 完整範例
 
 ```go

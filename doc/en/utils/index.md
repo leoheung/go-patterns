@@ -28,6 +28,18 @@ Common helper functions.
 ### [Channel](./channel.md)
 Non-blocking and timeout-based channel operations.
 
+### [Context Merge](./merge.md)
+Merges two contexts into one that is canceled when either is canceled.
+
+### [Goroutine](./goroutine.md)
+Retrieves the current goroutine ID for debugging and logging.
+
+### [Type](./type.md)
+Generic type checking helper for `any` values.
+
+### [Modulo](./modulo.md)
+Euclidean modulo operation that always returns a non-negative result.
+
 ## Complete Example
 
 ```go

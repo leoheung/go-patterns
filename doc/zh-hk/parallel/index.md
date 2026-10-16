@@ -37,13 +37,13 @@
 - Take 操作
 - 可組合的 Pipeline 階段
 
-### [Worker Pool](./pool.md)
-用於管理並發任務的 Worker Pool 模式。
+### [Pools](./pool.md)
+Worker Pool、支援 Context 嘅異步任務池同通用對象池。
 
 特性：
-- 固定大小的 Worker Pool
-- 任務隊列
-- 優雅關閉
+- WorkerPool - 基於信號量嘅固定大小工作池
+- AsyncPoolV2 - 支援 Context 嘅異步池,內置有界任務隊列同統計
+- ObjPool - 通用對象池,避免頻繁分配同 GC
 - [AsyncPool](./asyncpool.md) - 帶緩衝區支持的異步任務池
 
 ### [PubSub](./pubsub.md)
@@ -76,3 +76,20 @@
 特性：
 - BoolToken - 線程安全的布爾值
 - StaticTokens - 固定數量的令牌用於限流
+
+### [Stream](./stream.md)
+可組合嘅流式數據處理 Pipeline。
+
+特性：
+- 可鏈式階段(Transform、Filter、FlatMap、Parallel、Buffer 等)
+- Fan-in / Fan-out / Broadcast
+- 終端操作(Collect、ForEach、Take、Skip)
+- 基於 Done channel 嘅生命週期管理
+
+### [Communication](./communication.md)
+消息傳遞同時間抽象嘅接口定義。
+
+特性：
+- Message / MessageHeader 結構
+- MQ 接口(Publisher、Subscriber、Broadcaster、HttpClient)
+- Clock 接口

@@ -37,13 +37,13 @@ Features:
 - Take operation
 - Composable pipeline stages
 
-### [Worker Pool](./pool.md)
-Worker pool pattern for managing concurrent tasks.
+### [Pools](./pool.md)
+Worker pool, context-aware async task pool and generic object pool.
 
 Features:
-- Fixed-size worker pool
-- Task queue
-- Graceful shutdown
+- WorkerPool - fixed-size worker pool based on a semaphore
+- AsyncPoolV2 - context-aware async pool with bounded task queue and stats
+- ObjPool - generic object pool to avoid frequent allocation/GC
 - [AsyncPool](./asyncpool.md) - Async task pool with buffer support
 
 ### [PubSub](./pubsub.md)
@@ -76,3 +76,20 @@ Token-based synchronization primitives.
 Features:
 - BoolToken - Thread-safe boolean value
 - StaticTokens - Fixed token count for rate limiting
+
+### [Stream](./stream.md)
+Composable streaming pipeline for data processing.
+
+Features:
+- Chainable stages (Transform, Filter, FlatMap, Parallel, Buffer, ...)
+- Fan-in / Fan-out / Broadcast
+- Terminal operations (Collect, ForEach, Take, Skip)
+- Done channel based lifecycle
+
+### [Communication](./communication.md)
+Interfaces for message passing and time abstractions.
+
+Features:
+- Message / MessageHeader structures
+- MQ interfaces (Publisher, Subscriber, Broadcaster, HttpClient)
+- Clock interface
