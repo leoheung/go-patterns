@@ -2,6 +2,7 @@ package subscribe
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -35,24 +36,24 @@ func ChanSource[T any](c <-chan T) SourceFn[T] {
 	}
 }
 
-// PollingSource 轮询式 Source：fetch 自身也应尊重 ctx；
-// interval 等"生产侧配置"封装在这里，与 provider 解耦
-func PollingSource[T any](fetch func(ctx context.Context) (T, error), interval time.Duration) SourceFn[T] {
+// PollingSource 轮询式 Source：fetch 自身也应尊重 ctx。
+// ticker 由调用方创建并传入（生命周期归上游：t := time.NewTicker(d); defer t.Stop()），
+// 节奏配置与资源释放都在生产侧，本函数只做纯逻辑适配。
+func PollingSource[T any](fetch func(ctx context.Context) (T, error), ticker *time.Ticker) SourceFn[T] {
 	return func(ctx context.Context) (T, error) {
 		var zero T
-		for {
-			v, err := fetch(ctx)
-			if err == nil {
-				return v, nil
-			}
-			if ctx.Err() != nil {
-				return zero, context.Canceled
-			}
-			select {
-			case <-time.After(interval):
-			case <-ctx.Done():
-				return zero, context.Canceled
-			}
+
+		select {
+		case <-ctx.Done():
+			return zero, fmt.Errorf("context is done")
+		default:
+		}
+
+		select {
+		case <-ctx.Done():
+			return zero, fmt.Errorf("context is done")
+		case <-ticker.C:
+			return fetch(ctx)
 		}
 	}
 }
