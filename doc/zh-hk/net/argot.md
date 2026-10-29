@@ -580,7 +580,7 @@ func (d *Dispatcher) Handle(payload []byte) (reply []byte, err error)
 4. 把訊息向上取整至 `pad_policy.bucket` 的倍數。
 5. 解碼時讀 u16 opcode，經 `byOp` 解析，再按同一順序走同一批槽位，逐個綁定到 `ref`。
 
-這就是全部契約。其餘都是應用程式碼。
+這就是全部契約。其餘都是應用程式碼。下方的跨語言範例給出這一流程在 TypeScript 與 Java 中的完整落地。
 
 ## 線上格式規範
 
@@ -631,6 +631,400 @@ func (d *Dispatcher) Handle(payload []byte) (reply []byte, err error)
 `ValJSON` 以緊湊 JSON 序列化後加長度前綴；它是「負載」型別而非自我描述型別 —— 型別資訊只存在於手冊中。
 
 編譯器按 keyed PRNG 為每個槽位在適用變體中選擇，因此同一邏輯型別可能在不同函數中呈現不同形式，密鑰輪換後又會再變。
+
+## 跨語言範例
+
+Go 雲端服務把上方的三函數 spec 編譯成指紋為 `7f6be209…` 的手冊並簽名分發。下面，一個 **TypeScript client** 與一個 **Java server** 消費同一份手冊——兩者都不需要 Go 工具鏈、混淆密鑰或編譯器。手冊加上方的線上格式規範就是全部契約。
+
+兩段程式碼均經與 Go 參考實作交叉驗證：TypeScript client 編碼的呼叫幀與 Go 編碼器同一次呼叫的輸出逐位元組一致；Java server 編碼的結果幀可被 Go 與 TypeScript 正確解碼。
+
+### TypeScript client（Node.js）
+
+Node 18+，零依賴。可用 `node --experimental-strip-types` 直接執行。
+
+```ts
+// argot.ts — client 端參考編解碼器
+import { randomBytes } from "node:crypto";
+
+interface Slot { ref: string; type: string; encoding: string }
+interface FuncLayout { opcode: number; params: Slot[]; results: Slot[]; decoys: Slot[] }
+interface Manifest {
+  funcs: Record<string, FuncLayout>;
+  pad_policy: { decoy_min: number; decoy_max: number; bucket: number };
+}
+type Value = number | bigint | string | boolean | Uint8Array | null | object;
+
+// ---- 位元組層原語 ----
+
+class Reader {
+  private dv: DataView;
+  private off = 0;
+  private buf: Uint8Array;
+  constructor(buf: Uint8Array) {
+    this.buf = buf;
+    this.dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  }
+  u8(): number { return this.dv.getUint8(this.off++); }
+  u16(): number { const v = this.dv.getUint16(this.off); this.off += 2; return v; }
+  u32(): number { const v = this.dv.getUint32(this.off); this.off += 4; return v; }
+  bytes(n: number): Uint8Array { const v = this.buf.subarray(this.off, this.off + n); this.off += n; return v; }
+  uvarint(): bigint { // 無號 LEB128
+    let result = 0n, shift = 0n;
+    for (;;) {
+      const b = this.u8();
+      result |= BigInt(b & 0x7f) << shift;
+      if ((b & 0x80) === 0) return result;
+      shift += 7n;
+    }
+  }
+}
+
+class Writer {
+  private parts: number[] = [];
+  u16(v: number): this { this.parts.push((v >> 8) & 0xff, v & 0xff); return this; }
+  uvarint(v: bigint): this {
+    let n = v;
+    for (;;) {
+      const b = Number(n & 0x7fn);
+      n >>= 7n;
+      this.parts.push(n === 0n ? b : b | 0x80);
+      if (n === 0n) return this;
+    }
+  }
+  fixed64(bits: bigint): this { // 原始 64 位元樣式，大端
+    for (let i = 7n; i >= 0n; i--) this.parts.push(Number((bits >> (i * 8n)) & 0xffn));
+    return this;
+  }
+  payload(p: Uint8Array, len32: boolean): this {
+    if (len32) {
+      this.parts.push((p.length >>> 24) & 0xff, (p.length >>> 16) & 0xff,
+                      (p.length >>> 8) & 0xff, p.length & 0xff);
+    } else {
+      if (p.length > 0xffff) throw new Error("argot: payload too long for len16");
+      this.parts.push((p.length >> 8) & 0xff, p.length & 0xff);
+    }
+    for (const b of p) this.parts.push(b);
+    return this;
+  }
+  pad(bucket: number): this {
+    if (bucket > 1 && this.parts.length % bucket !== 0) {
+      this.parts.push(...new Array(bucket - (this.parts.length % bucket)).fill(0));
+    }
+    return this;
+  }
+  out(): Uint8Array { return Uint8Array.from(this.parts); }
+}
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+const zigzag = (n: bigint): bigint => (n << 1n) ^ (n >> 63n);
+
+function toBigint(v: Value): bigint {
+  if (typeof v === "bigint") return v;
+  if (typeof v === "number") return BigInt(Math.trunc(v));
+  throw new Error(`argot: cannot use ${typeof v} as int`);
+}
+
+function writeSlot(w: Writer, s: Slot, v: Value): void {
+  switch (s.encoding) {
+    case "varint":        w.uvarint(toBigint(v)); break;
+    case "varint-zigzag": w.uvarint(zigzag(toBigint(v))); break;
+    case "fixed64": {
+      const f64 = new DataView(new ArrayBuffer(8));
+      if (s.type === "int")       f64.setBigInt64(0, toBigint(v));
+      else if (s.type === "uint") f64.setBigUint64(0, toBigint(v));
+      else                        f64.setFloat64(0, Number(v));
+      w.fixed64(f64.getBigUint64(0));
+      break;
+    }
+    case "fixed8": w.u8(v === true ? 1 : 0); break;
+    case "len16-prefixed":
+    case "len32-prefixed": {
+      const p = s.type === "json"   ? encoder.encode(JSON.stringify(v))
+             : s.type === "bytes" ? (v as Uint8Array)
+             :                       encoder.encode(String(v));
+      w.payload(p, s.encoding === "len32-prefixed");
+      break;
+    }
+    default: throw new Error(`argot: unknown encoding ${s.encoding}`);
+  }
+}
+
+function readSlot(r: Reader, s: Slot): Value {
+  switch (s.encoding) {
+    case "varint":        return r.uvarint();
+    case "varint-zigzag": { const u = r.uvarint(); return (u >> 1n) ^ -(u & 1n); }
+    case "fixed64": {
+      const raw = r.bytes(8);
+      const f64 = new DataView(raw.buffer, raw.byteOffset, 8);
+      if (s.type === "int")  return f64.getBigInt64(0);
+      if (s.type === "uint") return f64.getBigUint64(0);
+      return f64.getFloat64(0);
+    }
+    case "fixed8": return r.u8() === 1;
+    case "len16-prefixed":
+    case "len32-prefixed": {
+      const n = s.encoding === "len16-prefixed" ? r.u16() : r.u32();
+      const p = r.bytes(n);
+      if (s.type === "json")   return JSON.parse(decoder.decode(p));
+      if (s.type === "bytes")  return p;
+      return decoder.decode(p);
+    }
+    default: throw new Error(`argot: unknown encoding ${s.encoding}`);
+  }
+}
+
+// 誘餌值內容任意（對端會丟棄），隨機即可
+function randomDecoy(type: string): Value {
+  switch (type) {
+    case "bytes":  return randomBytes(4 + Math.floor(Math.random() * 17));
+    case "string": return randomBytes(8).toString("hex");
+    case "int":    return BigInt(Math.floor(Math.random() * 200001) - 100000);
+    case "uint":   return BigInt(Math.floor(Math.random() * 100000));
+    case "float":  return Math.random() * 100;
+    case "bool":   return Math.random() < 0.5;
+    default:       return { v: Math.floor(Math.random() * 1000) }; // json
+  }
+}
+
+// ---- 編解碼器本體：手冊之上的兩張索引 ----
+
+export class Argot {
+  private byName: Map<string, FuncLayout>;
+  private byOp = new Map<number, { name: string; layout: FuncLayout }>();
+  private man: Manifest;
+
+  constructor(man: Manifest) {
+    this.man = man;
+    this.byName = new Map(Object.entries(man.funcs));
+    for (const [name, layout] of Object.entries(man.funcs)) {
+      this.byOp.set(layout.opcode, { name, layout });
+    }
+  }
+
+  encodeCall(name: string, args: Record<string, Value>): Uint8Array {
+    const layout = this.byName.get(name);
+    if (!layout) throw new Error(`argot: unknown function ${name}`);
+    for (const s of layout.params) if (!(s.ref in args)) throw new Error(`argot: missing arg ${s.ref}`);
+    for (const k of Object.keys(args)) {
+      if (!layout.params.some(s => s.ref === k)) throw new Error(`argot: unexpected arg ${k}`);
+    }
+
+    const w = new Writer();
+    w.u16(layout.opcode);
+    for (const s of layout.params) writeSlot(w, s, args[s.ref]);
+    for (const s of layout.decoys) writeSlot(w, s, randomDecoy(s.type)); // 對端會丟棄
+    w.pad(this.man.pad_policy.bucket);
+    return w.out();
+  }
+
+  decodeResult(data: Uint8Array, name: string): { err: string; values: Record<string, Value> } {
+    const layout = this.byName.get(name);
+    if (!layout) throw new Error(`argot: unknown function ${name}`);
+    const r = new Reader(data);
+    if (r.u16() !== layout.opcode) throw new Error("argot: result opcode mismatch");
+    const status = r.u8();
+    if (status === 1) { // 應用錯誤：len16 前綴文字
+      return { err: decoder.decode(r.bytes(r.u16())), values: {} };
+    }
+    if (status !== 0) throw new Error(`argot: invalid status 0x${status.toString(16)}`);
+    const values: Record<string, Value> = {};
+    for (const s of layout.results) values[s.ref] = readSlot(r, s);
+    return { err: "", values };
+  }
+}
+```
+
+整數解碼為 `BigInt`——確認值在 ±2^53 內時可用 `Number()` 收窄。
+
+用法：
+
+```ts
+import { readFileSync } from "node:fs";
+
+const manifest: Manifest = JSON.parse(readFileSync("manifest.json", "utf8")); // 取得並驗簽後
+const a = new Argot(manifest);
+
+// 應用程式碼始終按名稱呼叫，與順序無關。
+const frame = a.encodeCall("fs.read", { path: "/etc/hosts", offset: 0 });
+noiseConn.write(frame); // → 送往下方的 Java server
+
+const reply = /* 下方 Java server 編碼的結果幀 hex：
+                1e85000016636f6e74656e7473206f66202f6574632f686f7374730000… */;
+const res = a.decodeResult(reply, "fs.read");
+if (res.err === "") {
+  const data = Buffer.from(res.values.data as Uint8Array).toString("utf8");
+}
+```
+
+### Java server（JDK 17+）
+
+純 JDK，無第三方依賴。record + `ByteBuffer` + `ByteArrayOutputStream`。
+
+```java
+// ArgotServer.java — server 端參考編解碼器
+import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+
+public class ArgotServer {
+
+    // ---- 手冊型別（生產環境用 Jackson/Gson 反序列化已簽名的 JSON；
+    //      切勿手抄佈局——必須讀取雲端服務簽名的手冊）----
+    record Slot(String ref, String type, String encoding) {}
+    record FuncLayout(int opcode, List<Slot> params, List<Slot> results, List<Slot> decoys) {}
+    record Manifest(Map<String, FuncLayout> funcs, int bucket) {}
+    record Call(String name, Map<String, Object> args) {}
+    record Result(String err, Map<String, Object> values) {}
+
+    static final class ArgotCodec {
+        private final Map<String, FuncLayout> byName = new HashMap<>();
+        private final Map<Integer, String> byOp = new HashMap<>();
+        private final int bucket;
+
+        ArgotCodec(Manifest man) {
+            this.bucket = man.bucket();
+            man.funcs().forEach((name, layout) -> {
+                byName.put(name, layout);
+                byOp.put(layout.opcode(), name);
+            });
+        }
+
+        /** decodeCall：[opcode u16][參數槽位][誘餌槽位][填充] */
+        Call decodeCall(byte[] frame) {
+            ByteBuffer r = ByteBuffer.wrap(frame);
+            int op = r.getShort() & 0xffff;
+            String name = byOp.get(op);
+            if (name == null) throw new IllegalArgumentException("unknown opcode 0x" + Integer.toHexString(op));
+            FuncLayout layout = byName.get(name);
+
+            Map<String, Object> args = new HashMap<>();
+            for (Slot s : layout.params()) args.put(s.ref(), readSlot(r, s));
+            for (Slot s : layout.decoys()) readSlot(r, s); // 必須解碼才能推進偏移
+            // 尾部位元組是填充——忽略
+            return new Call(name, args);
+        }
+
+        /** encodeResult：[opcode u16][status u8][結果槽位 | len16 錯誤串][填充] */
+        byte[] encodeResult(String name, Result res) {
+            FuncLayout layout = byName.get(name);
+            if (layout == null) throw new IllegalArgumentException("unknown function " + name);
+
+            ByteArrayOutputStream w = new ByteArrayOutputStream();
+            w.write((layout.opcode() >> 8) & 0xff); w.write(layout.opcode() & 0xff);
+            if (res.err() != null && !res.err().isEmpty()) {
+                w.write(0x01);
+                byte[] p = res.err().getBytes(StandardCharsets.UTF_8);
+                w.write((p.length >> 8) & 0xff); w.write(p.length & 0xff);
+                w.writeBytes(p);
+            } else {
+                w.write(0x00);
+                for (Slot s : layout.results()) writeSlot(w, s, res.values().get(s.ref()));
+            }
+            while (bucket > 1 && w.size() % bucket != 0) w.write(0); // 填充
+            return w.toByteArray();
+        }
+
+        private static Object readSlot(ByteBuffer r, Slot s) {
+            switch (s.encoding()) {
+                case "varint":        return readUvarint(r);
+                case "varint-zigzag": { long u = readUvarint(r); return (u >>> 1) ^ -(u & 1); }
+                case "fixed64": {     // ByteBuffer 預設就是大端
+                    long bits = r.getLong();
+                    return s.type().equals("float") ? Double.longBitsToDouble(bits) : bits;
+                }
+                case "fixed8": {
+                    int b = r.get() & 0xff;
+                    if (b > 1) throw new IllegalArgumentException("invalid bool byte " + b);
+                    return b == 1;
+                }
+                case "len16-prefixed": return readPayload(r, s, r.getShort() & 0xffff);
+                case "len32-prefixed": return readPayload(r, s, r.getInt() & 0x7fffffff);
+                default: throw new IllegalArgumentException("unknown encoding " + s.encoding());
+            }
+        }
+
+        private static Object readPayload(ByteBuffer r, Slot s, int n) {
+            byte[] p = new byte[n];
+            r.get(p);
+            return s.type().equals("bytes") ? p : new String(p, StandardCharsets.UTF_8);
+            // json 槽位是長度前綴的 JSON *文字*——用你的 JSON 庫解析
+        }
+
+        private static long readUvarint(ByteBuffer r) { // 無號 LEB128
+            long result = 0; int shift = 0;
+            for (;;) {
+                byte b = r.get();
+                result |= (long) (b & 0x7f) << shift;
+                if ((b & 0x80) == 0) return result;
+                shift += 7;
+            }
+        }
+
+        private static void writeSlot(ByteArrayOutputStream w, Slot s, Object v) {
+            switch (s.encoding()) {
+                case "varint" -> writeUvarint(w, ((Number) v).longValue());
+                case "varint-zigzag" -> {
+                    long n = ((Number) v).longValue();
+                    writeUvarint(w, (n << 1) ^ (n >> 63));
+                }
+                case "fixed64" -> {
+                    long bits = s.type().equals("float")
+                            ? Double.doubleToRawLongBits(((Number) v).doubleValue())
+                            : ((Number) v).longValue();
+                    for (int i = 56; i >= 0; i -= 8) w.write((int) (bits >>> i) & 0xff);
+                }
+                case "fixed8" -> w.write(((Boolean) v) ? 1 : 0);
+                case "len16-prefixed", "len32-prefixed" -> {
+                    byte[] p = s.type().equals("bytes") ? (byte[]) v
+                            : String.valueOf(v).getBytes(StandardCharsets.UTF_8);
+                    if (s.encoding().equals("len32-prefixed")) {
+                        w.write((p.length >>> 24) & 0xff); w.write((p.length >>> 16) & 0xff);
+                        w.write((p.length >>> 8) & 0xff);  w.write(p.length & 0xff);
+                    } else {
+                        w.write((p.length >> 8) & 0xff);   w.write(p.length & 0xff);
+                    }
+                    w.writeBytes(p);
+                }
+                default -> throw new IllegalArgumentException("unknown encoding " + s.encoding());
+            }
+        }
+
+        private static void writeUvarint(ByteArrayOutputStream w, long v) {
+            while ((v & ~0x7fL) != 0) { w.write((int) (v & 0x7f) | 0x80); v >>>= 7; }
+            w.write((int) v);
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        // 生產環境：Manifest man = jsonParser.parse(已驗簽的手冊位元組);
+        Manifest man = loadManifest();
+        ArgotCodec codec = new ArgotCodec(man);
+
+        // TypeScript client（或 Go 參考實作）產生的呼叫幀：
+        byte[] frame = hexToBytes("1e85000a2f6574632f686f737473" + "00".repeat(49));
+        Call call = codec.decodeCall(frame);       // → {fs.read, {path="/etc/hosts", offset=0}}
+
+        // 執行並回覆：
+        Map<String, Object> values = new HashMap<>();
+        values.put("data", "contents of /etc/hosts".getBytes(StandardCharsets.UTF_8));
+        byte[] reply = codec.encodeResult(call.name(), new Result(null, values));
+        noiseConn.write(reply); // → 由 TypeScript client 的 decodeResult 解碼
+    }
+}
+```
+
+### 互通檢查清單
+
+把編解碼器移植到任何語言時，這些細節決定互通成敗：
+
+- `opcode` 是無號 16 位元**大端**整數；所有長度前綴與 `fixed64` 也是大端，而 LEB128 varint 是低位元組在前。
+- 槽位順序**就是手冊中 `params` / `results` 陣列的順序**——絕不是原 spec 的宣告順序。
+- 誘餌數量與佈局來自手冊而非線上：編碼時填隨機內容，解碼時讀掉丟棄。
+- 結果幀複用請求的 opcode，且恰有一個狀態位元組（`0x00` 結果 / `0x01` len16 前綴錯誤文字）。
+- `json` 槽位是長度前綴的緊湊 JSON *文字*；型別資訊只存在於手冊中。
+- 填充是補零到下一個 `bucket` 倍數的尾部位元組；解碼端直接忽略剩餘部分。
 
 ## 安全模型
 

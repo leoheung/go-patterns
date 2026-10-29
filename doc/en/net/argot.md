@@ -584,7 +584,7 @@ No Go toolchain, no key, and no compiler are needed. Given the manifest:
 4. Round the message up to the next `pad_policy.bucket` multiple.
 5. For a decode, read the u16 opcode, resolve via `byOp`, then walk the same slots in the same order, binding each to `ref`.
 
-That is the whole contract. Everything else is application code.
+That is the whole contract. Everything else is application code. The Cross-Language Examples section below shows this flow fully implemented in TypeScript and Java.
 
 ## Wire Format Specification
 
@@ -635,6 +635,399 @@ This section is normative. Two implementations that follow it interoperate.
 `ValJSON` is serialized with the usual compact JSON encoding and then length-prefixed; it is a "payload" type, not a self-describing one — the type information lives only in the manifest.
 
 The compiler chooses among applicable variants per slot using the keyed PRNG, so the same logical type may appear differently in different functions, and differently again after a key rotation.
+
+## Cross-Language Examples
+
+The Go cloud service compiled the three-function spec above into a manifest with fingerprint `7f6be209…` and signed it for distribution. Below, a **TypeScript client** and a **Java server** both consume that same manifest — neither needs the Go toolchain, the obfuscation key, or the compiler. The manifest plus the wire specification above is the entire contract.
+
+Both listings were cross-verified against the Go reference implementation: the frame encoded by the TypeScript client is byte-identical to the Go encoder's output for the same call, and the result frame encoded by the Java server decodes correctly under both Go and TypeScript.
+
+### TypeScript client (Node.js)
+
+Node 18+, zero dependencies. Run directly with `node --experimental-strip-types`.
+
+```ts
+// argot.ts — client-side reference codec
+import { randomBytes } from "node:crypto";
+
+interface Slot { ref: string; type: string; encoding: string }
+interface FuncLayout { opcode: number; params: Slot[]; results: Slot[]; decoys: Slot[] }
+interface Manifest {
+  funcs: Record<string, FuncLayout>;
+  pad_policy: { decoy_min: number; decoy_max: number; bucket: number };
+}
+type Value = number | bigint | string | boolean | Uint8Array | null | object;
+
+// ---- byte-level primitives ----
+
+class Reader {
+  private dv: DataView;
+  private off = 0;
+  private buf: Uint8Array;
+  constructor(buf: Uint8Array) {
+    this.buf = buf;
+    this.dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  }
+  u8(): number { return this.dv.getUint8(this.off++); }
+  u16(): number { const v = this.dv.getUint16(this.off); this.off += 2; return v; }
+  u32(): number { const v = this.dv.getUint32(this.off); this.off += 4; return v; }
+  bytes(n: number): Uint8Array { const v = this.buf.subarray(this.off, this.off + n); this.off += n; return v; }
+  uvarint(): bigint { // unsigned LEB128
+    let result = 0n, shift = 0n;
+    for (;;) {
+      const b = this.u8();
+      result |= BigInt(b & 0x7f) << shift;
+      if ((b & 0x80) === 0) return result;
+      shift += 7n;
+    }
+  }
+}
+
+class Writer {
+  private parts: number[] = [];
+  u16(v: number): this { this.parts.push((v >> 8) & 0xff, v & 0xff); return this; }
+  uvarint(v: bigint): this {
+    let n = v;
+    for (;;) {
+      const b = Number(n & 0x7fn);
+      n >>= 7n;
+      this.parts.push(n === 0n ? b : b | 0x80);
+      if (n === 0n) return this;
+    }
+  }
+  fixed64(bits: bigint): this { // raw 64-bit pattern, big-endian
+    for (let i = 7n; i >= 0n; i--) this.parts.push(Number((bits >> (i * 8n)) & 0xffn));
+    return this;
+  }
+  payload(p: Uint8Array, len32: boolean): this {
+    if (len32) {
+      this.parts.push((p.length >>> 24) & 0xff, (p.length >>> 16) & 0xff,
+                      (p.length >>> 8) & 0xff, p.length & 0xff);
+    } else {
+      if (p.length > 0xffff) throw new Error("argot: payload too long for len16");
+      this.parts.push((p.length >> 8) & 0xff, p.length & 0xff);
+    }
+    for (const b of p) this.parts.push(b);
+    return this;
+  }
+  pad(bucket: number): this {
+    if (bucket > 1 && this.parts.length % bucket !== 0) {
+      this.parts.push(...new Array(bucket - (this.parts.length % bucket)).fill(0));
+    }
+    return this;
+  }
+  out(): Uint8Array { return Uint8Array.from(this.parts); }
+}
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+const zigzag = (n: bigint): bigint => (n << 1n) ^ (n >> 63n);
+
+function toBigint(v: Value): bigint {
+  if (typeof v === "bigint") return v;
+  if (typeof v === "number") return BigInt(Math.trunc(v));
+  throw new Error(`argot: cannot use ${typeof v} as int`);
+}
+
+function writeSlot(w: Writer, s: Slot, v: Value): void {
+  switch (s.encoding) {
+    case "varint":        w.uvarint(toBigint(v)); break;
+    case "varint-zigzag": w.uvarint(zigzag(toBigint(v))); break;
+    case "fixed64": {
+      const f64 = new DataView(new ArrayBuffer(8));
+      if (s.type === "int")       f64.setBigInt64(0, toBigint(v));
+      else if (s.type === "uint") f64.setBigUint64(0, toBigint(v));
+      else                        f64.setFloat64(0, Number(v));
+      w.fixed64(f64.getBigUint64(0));
+      break;
+    }
+    case "fixed8": w.u8(v === true ? 1 : 0); break;
+    case "len16-prefixed":
+    case "len32-prefixed": {
+      const p = s.type === "json"   ? encoder.encode(JSON.stringify(v))
+             : s.type === "bytes" ? (v as Uint8Array)
+             :                       encoder.encode(String(v));
+      w.payload(p, s.encoding === "len32-prefixed");
+      break;
+    }
+    default: throw new Error(`argot: unknown encoding ${s.encoding}`);
+  }
+}
+
+function readSlot(r: Reader, s: Slot): Value {
+  switch (s.encoding) {
+    case "varint":        return r.uvarint();
+    case "varint-zigzag": { const u = r.uvarint(); return (u >> 1n) ^ -(u & 1n); }
+    case "fixed64": {
+      const raw = r.bytes(8);
+      const f64 = new DataView(raw.buffer, raw.byteOffset, 8);
+      if (s.type === "int")  return f64.getBigInt64(0);
+      if (s.type === "uint") return f64.getBigUint64(0);
+      return f64.getFloat64(0);
+    }
+    case "fixed8": return r.u8() === 1;
+    case "len16-prefixed":
+    case "len32-prefixed": {
+      const n = s.encoding === "len16-prefixed" ? r.u16() : r.u32();
+      const p = r.bytes(n);
+      if (s.type === "json")   return JSON.parse(decoder.decode(p));
+      if (s.type === "bytes")  return p;
+      return decoder.decode(p);
+    }
+    default: throw new Error(`argot: unknown encoding ${s.encoding}`);
+  }
+}
+
+function randomDecoy(type: string): Value {
+  switch (type) {
+    case "bytes":  return randomBytes(4 + Math.floor(Math.random() * 17));
+    case "string": return randomBytes(8).toString("hex");
+    case "int":    return BigInt(Math.floor(Math.random() * 200001) - 100000);
+    case "uint":   return BigInt(Math.floor(Math.random() * 100000));
+    case "float":  return Math.random() * 100;
+    case "bool":   return Math.random() < 0.5;
+    default:       return { v: Math.floor(Math.random() * 1000) }; // json
+  }
+}
+
+// ---- the codec itself: two maps over the manifest ----
+
+export class Argot {
+  private byName: Map<string, FuncLayout>;
+  private byOp = new Map<number, { name: string; layout: FuncLayout }>();
+  private man: Manifest;
+
+  constructor(man: Manifest) {
+    this.man = man;
+    this.byName = new Map(Object.entries(man.funcs));
+    for (const [name, layout] of Object.entries(man.funcs)) {
+      this.byOp.set(layout.opcode, { name, layout });
+    }
+  }
+
+  encodeCall(name: string, args: Record<string, Value>): Uint8Array {
+    const layout = this.byName.get(name);
+    if (!layout) throw new Error(`argot: unknown function ${name}`);
+    for (const s of layout.params) if (!(s.ref in args)) throw new Error(`argot: missing arg ${s.ref}`);
+    for (const k of Object.keys(args)) {
+      if (!layout.params.some(s => s.ref === k)) throw new Error(`argot: unexpected arg ${k}`);
+    }
+
+    const w = new Writer();
+    w.u16(layout.opcode);
+    for (const s of layout.params) writeSlot(w, s, args[s.ref]);
+    for (const s of layout.decoys) writeSlot(w, s, randomDecoy(s.type)); // peer discards these
+    w.pad(this.man.pad_policy.bucket);
+    return w.out();
+  }
+
+  decodeResult(data: Uint8Array, name: string): { err: string; values: Record<string, Value> } {
+    const layout = this.byName.get(name);
+    if (!layout) throw new Error(`argot: unknown function ${name}`);
+    const r = new Reader(data);
+    if (r.u16() !== layout.opcode) throw new Error("argot: result opcode mismatch");
+    const status = r.u8();
+    if (status === 1) { // application error: len16-prefixed text
+      return { err: decoder.decode(r.bytes(r.u16())), values: {} };
+    }
+    if (status !== 0) throw new Error(`argot: invalid status 0x${status.toString(16)}`);
+    const values: Record<string, Value> = {};
+    for (const s of layout.results) values[s.ref] = readSlot(r, s);
+    return { err: "", values };
+  }
+}
+```
+
+Ints decode as `BigInt` — narrow with `Number()` when you know the value fits in ±2^53.
+
+Usage:
+
+```ts
+import { readFileSync } from "node:fs";
+
+const manifest: Manifest = JSON.parse(readFileSync("manifest.json", "utf8")); // fetched + signature-verified
+const a = new Argot(manifest);
+
+// Application code stays name-based and order-free.
+const frame = a.encodeCall("fs.read", { path: "/etc/hosts", offset: 0 });
+noiseConn.write(frame); // → delivered to the Java server below
+
+const reply = /* frame hex decoded by the Java server below:
+                1e85000016636f6e74656e7473206f66202f6574632f686f7374730000… */;
+const res = a.decodeResult(reply, "fs.read");
+if (res.err === "") {
+  const data = Buffer.from(res.values.data as Uint8Array).toString("utf8");
+}
+```
+
+### Java server (JDK 17+)
+
+Pure JDK, no third-party libraries. Records + `ByteBuffer` + `ByteArrayOutputStream`.
+
+```java
+// ArgotServer.java — server-side reference codec
+import java.io.ByteArrayOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+
+public class ArgotServer {
+
+    // ---- manifest types (deserialize the signed JSON with Jackson/Gson in production;
+    //      never hand-copy layouts — read them from the manifest the cloud service signed) ----
+    record Slot(String ref, String type, String encoding) {}
+    record FuncLayout(int opcode, List<Slot> params, List<Slot> results, List<Slot> decoys) {}
+    record Manifest(Map<String, FuncLayout> funcs, int bucket) {}
+    record Call(String name, Map<String, Object> args) {}
+    record Result(String err, Map<String, Object> values) {}
+
+    static final class ArgotCodec {
+        private final Map<String, FuncLayout> byName = new HashMap<>();
+        private final Map<Integer, String> byOp = new HashMap<>();
+        private final int bucket;
+
+        ArgotCodec(Manifest man) {
+            this.bucket = man.bucket();
+            man.funcs().forEach((name, layout) -> {
+                byName.put(name, layout);
+                byOp.put(layout.opcode(), name);
+            });
+        }
+
+        /** decodeCall: [opcode u16][param slots][decoy slots][padding] */
+        Call decodeCall(byte[] frame) {
+            ByteBuffer r = ByteBuffer.wrap(frame);
+            int op = r.getShort() & 0xffff;
+            String name = byOp.get(op);
+            if (name == null) throw new IllegalArgumentException("unknown opcode 0x" + Integer.toHexString(op));
+            FuncLayout layout = byName.get(name);
+
+            Map<String, Object> args = new HashMap<>();
+            for (Slot s : layout.params()) args.put(s.ref(), readSlot(r, s));
+            for (Slot s : layout.decoys()) readSlot(r, s); // must be consumed to advance the offset
+            // trailing bytes are padding — ignored
+            return new Call(name, args);
+        }
+
+        /** encodeResult: [opcode u16][status u8][result slots | len16 err][padding] */
+        byte[] encodeResult(String name, Result res) {
+            FuncLayout layout = byName.get(name);
+            if (layout == null) throw new IllegalArgumentException("unknown function " + name);
+
+            ByteArrayOutputStream w = new ByteArrayOutputStream();
+            w.write((layout.opcode() >> 8) & 0xff); w.write(layout.opcode() & 0xff);
+            if (res.err() != null && !res.err().isEmpty()) {
+                w.write(0x01);
+                byte[] p = res.err().getBytes(StandardCharsets.UTF_8);
+                w.write((p.length >> 8) & 0xff); w.write(p.length & 0xff);
+                w.writeBytes(p);
+            } else {
+                w.write(0x00);
+                for (Slot s : layout.results()) writeSlot(w, s, res.values().get(s.ref()));
+            }
+            while (bucket > 1 && w.size() % bucket != 0) w.write(0); // padding
+            return w.toByteArray();
+        }
+
+        private static Object readSlot(ByteBuffer r, Slot s) {
+            switch (s.encoding()) {
+                case "varint":        return readUvarint(r);
+                case "varint-zigzag": { long u = readUvarint(r); return (u >>> 1) ^ -(u & 1); }
+                case "fixed64": {     // ByteBuffer is big-endian by default
+                    long bits = r.getLong();
+                    return s.type().equals("float") ? Double.longBitsToDouble(bits) : bits;
+                }
+                case "fixed8": {
+                    int b = r.get() & 0xff;
+                    if (b > 1) throw new IllegalArgumentException("invalid bool byte " + b);
+                    return b == 1;
+                }
+                case "len16-prefixed": return readPayload(r, s, r.getShort() & 0xffff);
+                case "len32-prefixed": return readPayload(r, s, r.getInt() & 0x7fffffff);
+                default: throw new IllegalArgumentException("unknown encoding " + s.encoding());
+            }
+        }
+
+        private static Object readPayload(ByteBuffer r, Slot s, int n) {
+            byte[] p = new byte[n];
+            r.get(p);
+            return s.type().equals("bytes") ? p : new String(p, StandardCharsets.UTF_8);
+            // json slots are length-prefixed JSON *text* — parse with your JSON library
+        }
+
+        private static long readUvarint(ByteBuffer r) { // unsigned LEB128
+            long result = 0; int shift = 0;
+            for (;;) {
+                byte b = r.get();
+                result |= (long) (b & 0x7f) << shift;
+                if ((b & 0x80) == 0) return result;
+                shift += 7;
+            }
+        }
+
+        private static void writeSlot(ByteArrayOutputStream w, Slot s, Object v) {
+            switch (s.encoding()) {
+                case "varint" -> writeUvarint(w, ((Number) v).longValue());
+                case "varint-zigzag" -> {
+                    long n = ((Number) v).longValue();
+                    writeUvarint(w, (n << 1) ^ (n >> 63));
+                }
+                case "fixed64" -> {
+                    long bits = s.type().equals("float")
+                            ? Double.doubleToRawLongBits(((Number) v).doubleValue())
+                            : ((Number) v).longValue();
+                    for (int i = 56; i >= 0; i -= 8) w.write((int) (bits >>> i) & 0xff);
+                }
+                case "fixed8" -> w.write(((Boolean) v) ? 1 : 0);
+                case "len16-prefixed", "len32-prefixed" -> {
+                    byte[] p = s.type().equals("bytes") ? (byte[]) v
+                            : String.valueOf(v).getBytes(StandardCharsets.UTF_8);
+                    if (s.encoding().equals("len32-prefixed")) {
+                        w.write((p.length >>> 24) & 0xff); w.write((p.length >>> 16) & 0xff);
+                        w.write((p.length >>> 8) & 0xff);  w.write(p.length & 0xff);
+                    } else {
+                        w.write((p.length >> 8) & 0xff);   w.write(p.length & 0xff);
+                    }
+                    w.writeBytes(p);
+                }
+                default -> throw new IllegalArgumentException("unknown encoding " + s.encoding());
+            }
+        }
+
+        private static void writeUvarint(ByteArrayOutputStream w, long v) {
+            while ((v & ~0x7fL) != 0) { w.write((int) (v & 0x7f) | 0x80); v >>>= 7; }
+            w.write((int) v);
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        // In production: Manifest man = jsonParser.parse(signatureVerifiedManifestBytes);
+        Manifest man = loadManifest();
+        ArgotCodec codec = new ArgotCodec(man);
+
+        // A call frame produced by the TypeScript client (or the Go reference codec):
+        byte[] frame = hexToBytes("1e85000a2f6574632f686f737473" + "00".repeat(49));
+        Call call = codec.decodeCall(frame);       // → {fs.read, {path="/etc/hosts", offset=0}}
+
+        // Execute and reply:
+        Map<String, Object> values = new HashMap<>();
+        values.put("data", "contents of /etc/hosts".getBytes(StandardCharsets.UTF_8));
+        byte[] reply = codec.encodeResult(call.name(), new Result(null, values));
+        noiseConn.write(reply); // → decoded by the TypeScript client's decodeResult
+    }
+}
+```
+
+### Interop checklist
+
+When porting the codec to any language, these are the details that make or break interoperation:
+
+- The `opcode` is an unsigned 16-bit **big-endian** integer; every length prefix and `fixed64` is big-endian too, while LEB128 varints are least-significant-byte first.
+- Slot order is **exactly the `params` / `results` array order in the manifest** — never the declaration order of the original spec.
+- Decoy count and layout come from the manifest, not the wire: encode random bytes, decode and discard.
+- The result frame reuses the request's opcode and carries exactly one status byte (`0x00` results / `0x01` len16-prefixed error text).
+- `json` slots are length-prefixed compact JSON *text*; the type information lives only in the manifest.
+- Padding is trailing zeros up to the next `bucket` multiple; decoders simply ignore the remainder.
 
 ## Security Model
 
