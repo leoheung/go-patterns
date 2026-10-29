@@ -55,10 +55,8 @@ func (v *ValueProvider[T]) Set(val T) error {
 }
 
 func (v *ValueProvider[T]) Subscribe(buffer int) (<-chan T, func(), error) {
-	if !v.ctx.IsAlive() {
-		return nil, nil, fmt.Errorf("ValueProvider is paused")
-	}
-
+	// 订阅不受 paused 影响：注册接收者与数据流状态无关，
+	// 暂停期间订阅的 channel 在 Resume 后自动接收后续值
 	if buffer < 0 {
 		buffer = 0
 	}

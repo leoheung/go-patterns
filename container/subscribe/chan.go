@@ -1,8 +1,6 @@
 package subscribe
 
 import (
-	"fmt"
-
 	lctx "github.com/leoheung/go-patterns/container/context"
 	"github.com/leoheung/go-patterns/container/safeslice"
 	"github.com/leoheung/go-patterns/utils"
@@ -37,10 +35,8 @@ func NewChanProvider[T any](c <-chan T) *ChanProvider[T] {
 }
 
 func (v *ChanProvider[T]) Subscribe(buffer int) (<-chan T, func(), error) {
-	if !v.ctx.IsAlive() {
-		return nil, nil, fmt.Errorf("ChanProvider is paused")
-	}
-
+	// 订阅不受 paused 影响：注册接收者与数据流状态无关，
+	// 暂停期间订阅的 channel 在 Resume 后自动接收后续值
 	if buffer < 0 {
 		buffer = 0
 	}
