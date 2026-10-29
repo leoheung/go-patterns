@@ -72,6 +72,16 @@ http.ListenAndServe(":8080", handler)
 - Group broadcasting
 - Metadata storage
 
+### Protocol Obfuscation (argot)
+
+Compiles a plaintext protocol definition (function calls with parameter schemas) into a signed, language-neutral manifest, so that two private peers can exchange calls over Noise while an observer sees no function names, field names, type tags, or stable framing. The cloud service is the only party that holds both the spec and the obfuscation key. See [argot Documentation](./argot) for details.
+
+**Features:**
+- Manifest is the cross-language contract; Go is only the reference implementation
+- Deterministic compilation — stateless cloud service, reproducible manifests
+- No self-describing elements on the wire; opcodes and layouts are key-derived
+- ed25519-signed distribution plus a per-connection fingerprint check
+
 ### HTTP Response Helpers
 
 Standardized JSON and CSV response helpers for web services.

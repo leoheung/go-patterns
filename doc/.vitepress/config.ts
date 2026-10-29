@@ -177,7 +177,8 @@ function sidebar(lang: string) {
         items: [
           { text: isEn ? 'Overview' : '概覽', link: `/${lang}/net/` },
           { text: 'Clients', link: `/${lang}/net/clients` },
-          { text: 'WrapSocket', link: `/${lang}/net/wrapsocket` }
+          { text: 'WrapSocket', link: `/${lang}/net/wrapsocket` },
+          { text: 'Argot', link: `/${lang}/net/argot` }
         ]
       }
     ]
