@@ -115,6 +115,10 @@ func (gt *RenewableContext[T]) SetData(newData T) {
 }
 
 func (gt *RenewableContext[T]) MergeContext(otherCtx context.Context) {
+	if otherCtx == nil {
+		return 
+	}
+
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
 
