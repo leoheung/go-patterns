@@ -99,6 +99,25 @@ rows := [][]string{{"1", "Alice"}, {"2", "Bob"}}
 net.ReturnCSVResponse(w, "users.csv", headers, rows)
 ```
 
+### Request Body Binding
+
+Generic JSON request body decoding. Pure decode — no response is written; the handler decides how to respond on error. Field validation stays hand-written in the handler (no third-party validator dependency).
+
+```go
+// Decode the request body
+req, err := net.Bind[CreateOrderRequest](r)
+if err != nil {
+    net.ReturnErrorResponse(w, http.StatusBadRequest, "invalid request body")
+    return
+}
+
+// Manual validation follows
+if req.UserID == "" {
+    net.ReturnErrorResponse(w, http.StatusBadRequest, "userId is required")
+    return
+}
+```
+
 ### Chi Router Utilities
 
 ```go
@@ -216,6 +235,7 @@ func main() {
 
 - **Concurrent Download**: Multi-threaded downloading with automatic filename resolution.
 - **Standardized Responses**: Consistent `UniversalResponse` structure for JSON APIs.
+- **Request Body Binding**: Generic JSON body decoding (pure decode, handler decides error responses).
 - **Route Debugging**: Easily visualize Chi router structures.
 - **Pointer Utils**: Convenient helpers for handling optional fields in structs.
 - **Safe Body Reading**: Prevent memory issues by limiting body size.

@@ -99,6 +99,25 @@ rows := [][]string{{"1", "Alice"}, {"2", "Bob"}}
 net.ReturnCSVResponse(w, "users.csv", headers, rows)
 ```
 
+### 請求體綁定 (Bind)
+
+泛型 JSON 請求體解碼。純解碼——不寫入任何回應，錯誤時如何回應由 handler 決定。欄位校驗保持在 handler 內人手編寫（不引入第三方 validator 依賴）。
+
+```go
+// 解碼請求體
+req, err := net.Bind[CreateOrderRequest](r)
+if err != nil {
+    net.ReturnErrorResponse(w, http.StatusBadRequest, "invalid request body")
+    return
+}
+
+// 後續人手校驗
+if req.UserID == "" {
+    net.ReturnErrorResponse(w, http.StatusBadRequest, "userId is required")
+    return
+}
+```
+
 ### Chi 路由工具
 
 ```go
@@ -216,6 +235,7 @@ func main() {
 
 - **並發下載**: 自動計算分片並支持斷點續傳邏輯（視服務端支持而定），自動提取原始文件名。
 - **標準化回應**: 統一的 `UniversalResponse` 結構，包含 `isSuccess` 標誌。
+- **請求體綁定**: 泛型 JSON 請求體解碼（純解碼，錯誤回應由 handler 決定）。
 - **路由可視化**: 方便地查看 Chi 路由器的層級結構與中間件。
 - **類型指針化**: 簡化 Go 中基本類型轉指針的操作。
 - **安全 Body 讀取**: 通過限制 Body 大小來防止記憶體問題。
