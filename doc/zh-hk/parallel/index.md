@@ -46,6 +46,15 @@ Worker Pool、支援 Context 嘅異步任務池同通用對象池。
 - ObjPool - 通用對象池,避免頻繁分配同 GC
 - [AsyncPool](./asyncpool.md) - 帶緩衝區支持的異步任務池
 
+### [進程](./process.md)
+作業系統子進程管理器。
+
+特性：
+- 以調用者自選 ID 拉起/停止,停止冪等
+- 退出監視(Done channel、Wait 錯誤)
+- List/String 快照,關閉時 StopAll
+- Windows:子進程唔自帶控制台窗口
+
 ### [PubSub](./pubsub.md)
 發布-訂閱模式實現。
 

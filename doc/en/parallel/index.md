@@ -46,6 +46,15 @@ Features:
 - ObjPool - generic object pool to avoid frequent allocation/GC
 - [AsyncPool](./asyncpool.md) - Async task pool with buffer support
 
+### [Process](./process.md)
+Manager for OS child processes.
+
+Features:
+- Start/Stop by caller-chosen ID, idempotent stop
+- Exit watching (Done channel, Wait error)
+- List/String snapshot, StopAll on shutdown
+- Windows: children without a console window
+
 ### [PubSub](./pubsub.md)
 Publish-Subscribe pattern implementation.
 
