@@ -101,7 +101,8 @@ func (m *ProcessManager) Start(id, exe string, args []string, dir string, env []
 	if m.procs == nil {
 		m.procs = make(map[string]*Process)
 	}
-	if _, dup := m.procs[id]; dup {
+	if old, dup := m.procs[id]; dup && !old.Exited() {
+		// Only a live process blocks its id; an exited one it replaces.
 		m.mu.Unlock()
 		return nil, fmt.Errorf("process id already in use: %s", id)
 	}
